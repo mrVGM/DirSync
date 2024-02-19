@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>BUT</title>
+    <link rel="stylesheet" type="text/css" href="main.css">
+</head>
+<body>
+    <div style="height: 100%; display: flex; align-items: center;">
+        <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+            <div style="margin: 3px;">
+                <label>Server IP</label>
+                <input id="server_ip" type="text" />
+            </div>
+            <div style="margin: 3px;">
+                <label>SRC Dir</label>
+                <input id="src_dir" type="text" />
+            </div>
+            <div style="margin: 3px;">
+                <label>DST Dir</label>
+                <input id="dst_dir" type="text" />
+            </div>
+            <div style="display: flex;">
+                <div id="start_server" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Start Server</div>
+                <div id="update_local_files" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Update</div>
+                <div id="pipe_server" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Pipe Server</div>
+            </div>
+
+            <div id="cur_file" style="user-select: none;"></div>
+            <div style="width: 65%; height: 20px; background-color: azure; padding: 3px;">
+                <div id="cur_file_progress_bar" style="width: 20%; height: 100%; background-color: aquamarine;"></div>
+            </div>
+            <div style="width: 65%; height: 20px; background-color: azure; padding: 3px;">
+                <div id="overal_progress_bar" style="width: 20%; height: 100%; background-color: aquamarine;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { startServer, getRecs, checkLocalFiles } = require('./scripts/httpserver');
+        const { getRecords, readPrefs, flushPrefs } = require('./scripts/files');
+
+        document.prefs = {};
+
+        async function initPrefs() {
+            const srcDir = document.getElementById('src_dir');
+            const dstDir = document.getElementById('dst_dir');
+            const serverIP = document.getElementById('server_ip');
+
+            document.prefs = await readPrefs();
+            const prefs = document.prefs;
+
+            srcDir.value = prefs.srcDir;
+            dstDir.value = prefs.dstDir;
+            serverIP.value = prefs.serverIP;
+
+            srcDir.addEventListener('change', event => {
+                prefs.srcDir = srcDir.value;
+                flushPrefs(prefs);
+            });
+            dstDir.addEventListener('change', event => {
+                prefs.dstDir = dstDir.value;
+                flushPrefs(prefs);
+            });
+            serverIP.addEventListener('change', event => {
+                prefs.serverIP = serverIP.value;
+                flushPrefs(prefs);
+            });
+        }
+        initPrefs();
+
+        document.getElementById("start_server").addEventListener('click', async event => {
+            startServer();
+            await getRecords(document.prefs.srcDir);
+            require('./scripts/udpserver');
+        });
+
+        document.getElementById("update_local_files").addEventListener('click', async event => {
+            await checkLocalFiles();
+        });
+
+        document.getElementById("pipe_server").addEventListener('click', async event => {
+            require('./scripts/pipeserver');
+        });
+
+        function updateCurFileProgress(){
+            let progress = 0; 
+            if (document.curFileProgress) {
+                progress = document.curFileProgress[0] / document.curFileProgress[1];
+            }
+
+            document.getElementById('cur_file_progress_bar').style.width = `${100 * progress}%`;
+
+            setTimeout(updateCurFileProgress, 10);
+        };
+
+        function updateOveralProgress() {
+            let progress = 0;
+            if (document.overalProgress) {
+                progress = document.overalProgress[0] / document.overalProgress[1];
+            }
+
+            document.getElementById('overal_progress_bar').style.width = `${100 * progress}%`;
+
+            setTimeout(updateOveralProgress, 10);
+        };
+
+        function updateCurFile() {
+            let str = '';
+            if (document.curFile) {
+                str = `Downloading ${document.curFile.path} (${document.curFile.numPackets}KB)`;
+            }
+            document.getElementById('cur_file').innerHTML = str;
+
+            setTimeout(updateCurFile, 10);
+        };
+
+        updateCurFileProgress();
+        updateOveralProgress();
+        updateCurFile();
+
+
+    </script>
+</body>
+</html>
