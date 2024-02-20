@@ -19,12 +19,14 @@ namespace pipe_server
 	{
 	private:
 		HANDLE m_hPipe = nullptr;
+		HANDLE m_hPipeOut = nullptr;
 
 	public:
 		ServerObject();
 		virtual ~ServerObject();
 
 		void Start();
+		void StartOut();
 		bool HandleReq(const json_parser::JSONValue& req);
 		void SendResponse(const json_parser::JSONValue& res);
 	};

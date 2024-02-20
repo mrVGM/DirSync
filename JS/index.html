@@ -24,7 +24,6 @@
                 <div id="start_server" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Start Server</div>
                 <div id="update_local_files" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Update</div>
                 <div id="pipe_server" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Pipe Server</div>
-                <div id="calc_hash" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Calc Hash</div>
             </div>
 
             <div id="cur_file" style="user-select: none;"></div>
@@ -81,31 +80,33 @@
         });
 
         document.getElementById("pipe_server").addEventListener('click', async event => {
-            require('./scripts/pipeserver');
-        });
-		
-		document.getElementById("calc_hash").addEventListener('click', async event => {
+            const { getSendFunc } = await require('./scripts/pipeserver');
+            const send = await getSendFunc();
+
             let fileList = await getFileList(document.prefs.srcDir);
-			console.log(fileList);
-			
-			let reqs = fileList.map((x, index) => {
-				const path = require('path');
-				const req = {
-					id: index,
-					op: 'hash',
-					file: path.join(document.prefs.srcDir, x.path)
-				};
-				
-				return document.pipeSend(req);
-			});
-			
-			for (let i = 0; i < reqs.length; ++i) {
-				reqs[i] = await reqs[i];
-				
-				console.log('hahah');
-			}
-			
-			console.log(reqs);
+
+            let reqs = fileList.map((x, index) => {
+                const path = require('path');
+                const req = {
+                    id: index,
+                    op: 'hash',
+                    file: path.join(document.prefs.srcDir, x.path)
+                };
+
+                return send(req);
+            });
+
+            for (let i = 0; i < reqs.length; ++i) {
+                reqs[i] = await reqs[i];
+                fileList[reqs[i].id].hash = reqs[i].hash;
+            }
+
+            console.log(fileList);
+
+            send({
+                id: 0,
+                op: 'shutdown'
+            });
         });
 
         function updateCurFileProgress(){

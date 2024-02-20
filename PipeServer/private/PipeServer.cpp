@@ -48,8 +48,8 @@ void pipe_server::ServerObject::Start()
 {
 	// Try to open a named pipe; wait for it, if necessary. 
 	m_hPipe = CreateFile(
-		TEXT("\\\\.\\pipe\\mynamedpipe"),   // pipe name 
-		GENERIC_READ | GENERIC_WRITE,
+		TEXT("\\\\.\\pipe\\mynamedpipe_js_to_cpp"),   // pipe name 
+		GENERIC_READ,
 		0,              // no sharing 
 		NULL,           // default security attributes
 		OPEN_EXISTING,  // opens existing pipe 
@@ -116,9 +116,36 @@ void pipe_server::ServerObject::Start()
 		}
 
 		CloseHandle(m_hPipe);
+		CloseHandle(m_hPipeOut);
+
+		jobs::RunSync(jobs::Job::CreateFromLambda([]() {
+			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+			lock::LockObject* lock = static_cast<lock::LockObject*>(container.GetObjectOfClass(lock::MainLockMeta::GetInstance()));
+			lock->UnLock();
+		}));
 	});
 
 	m_serverJS->ScheduleJob(serverJob);
+}
+
+void pipe_server::ServerObject::StartOut()
+{
+	// Try to open a named pipe; wait for it, if necessary. 
+	m_hPipeOut = CreateFile(
+		TEXT("\\\\.\\pipe\\mynamedpipe_cpp_to_js"),   // pipe name 
+		GENERIC_WRITE,
+		0,              // no sharing 
+		NULL,           // default security attributes
+		OPEN_EXISTING,  // opens existing pipe 
+		0,              // default attributes 
+		NULL);          // no template file 
+
+	// Break if the pipe handle is valid. 
+
+	if (m_hPipeOut == INVALID_HANDLE_VALUE)
+	{
+		return;
+	}
 }
 
 
@@ -166,7 +193,7 @@ void pipe_server::ServerObject::SendResponse(const json_parser::JSONValue& res)
 
 		DWORD written;
 		WriteFile(
-			m_hPipe,
+			m_hPipeOut,
 			resp.c_str(),
 			resp.size() * sizeof(char),
 			&written,

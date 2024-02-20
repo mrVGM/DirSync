@@ -1,44 +1,52 @@
 const net = require('net');
 
-const PIPE_NAME = "mynamedpipe";
-const PIPE_PATH = "\\\\.\\pipe\\" + PIPE_NAME;
+const PIPE_NAME_SEND = "mynamedpipe_js_to_cpp";
+const PIPE_NAME_RECV = "mynamedpipe_cpp_to_js";
+const PIPE_PATH_SEND = "\\\\.\\pipe\\" + PIPE_NAME_SEND;
+const PIPE_PATH_RECV = "\\\\.\\pipe\\" + PIPE_NAME_RECV;
 
-const L = console.log;
-let server = net.createServer(function(stream) {
-	L('Server: on connection')
-
+async function pipe() {
 	const handlers = {};
 
-	document.pipeSend = async obj => {
-		stream.write(JSON.stringify(obj));
-		
-		const resp = await new Promise((resolve, reject) => {			
-			handlers[obj.id] = resp => {
-				resolve(resp);
+	let sendPipe = new Promise((resolve, reject) => {
+		let server = net.createServer(function (stream) {
+			async function send(obj) {
+				stream.write(JSON.stringify(obj));
+
+				const resp = await new Promise((resolve, reject) => {
+					handlers[obj.id] = resp => {
+						resolve(resp);
+					};
+				});
+				delete handlers[obj.id];
+
+				return resp;
 			};
+
+			stream.on('end', function () { });
+			resolve(send);
 		});
-		delete handlers[obj.id];
-		
-		return resp;
-	};
-
-	stream.on('end', function() {
-		console.log("No connection!");
-		document.pipeSend = undefined;
+		server.on('close', function () { });
+		server.listen(PIPE_PATH_SEND, function () { });
 	});
 
-	stream.on('data', function (c) {
-		L('Server: on data:', c.toString());
-		
-		const obj = JSON.parse(c);
-		handlers[obj.id](obj);
+	let recvPipe = new Promise((resolve, reject) => {
+		let server = net.createServer(function (stream) {
+			stream.on('end', function () { });
+
+			stream.on('data', function (c) {
+				const obj = JSON.parse(c);
+				handlers[obj.id](obj);
+			});
+
+			resolve();
+		});
+		server.on('close', function () { });
+		server.listen(PIPE_PATH_RECV, function () { });
 	});
-});
 
-server.on('close',function(){
-	L('Server: on close');
-});
+	await recvPipe;
+	return await sendPipe;
+}
 
-server.listen(PIPE_PATH,function(){
-	L('Server: on listening');
-});
+exports.getSendFunc = pipe;

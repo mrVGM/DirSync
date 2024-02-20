@@ -21,6 +21,7 @@ int main(int args, const char** argv)
 	jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
 		pipe_server::ServerObject* server = new pipe_server::ServerObject();
 		server->Start();
+		server->StartOut();
 	}));
 
 	lock->Lock();
