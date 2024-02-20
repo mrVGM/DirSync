@@ -1,6 +1,7 @@
 #include "Hash.h"
 
 #include <string>
+#include <stdio.h>
 
 namespace
 {
@@ -191,4 +192,31 @@ std::string crypto::Finalize(SHA256_CTX& ctx)
 	}
 
 	return hashStr;
+}
+
+std::string crypto::HashBinFile(const std::string& fileName)
+{
+	const size_t buffSize = 1024;
+	unsigned char* buff = new unsigned char[buffSize];
+	FILE* f = nullptr;
+	fopen_s(&f, fileName.c_str(), "rb");
+	if (!f)
+	{
+		return "";
+	}
+
+	SHA256_CTX ctx;
+	Init(ctx);
+	size_t read;
+	read = fread_s(buff, buffSize, sizeof(unsigned char), buffSize, f);
+	size_t totalRead = read;
+	while (read > 0)
+	{
+		Update(ctx, buff, read);
+		read = fread_s(buff, buffSize, sizeof(unsigned char), buffSize, f);
+		totalRead += read;
+	}
+	std::string res = Finalize(ctx);
+	delete buff;
+	return res;
 }

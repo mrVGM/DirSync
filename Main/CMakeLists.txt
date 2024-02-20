@@ -2,8 +2,6 @@
 
 add_executable (Main
 	"main.cpp"
-	"Hash.h"
-	"Hash.cpp"
 )
 
 target_link_libraries(Main PRIVATE

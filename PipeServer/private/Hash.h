@@ -16,4 +16,6 @@ namespace crypto
 	void Init(SHA256_CTX& ctx);
 	void Update(SHA256_CTX& ctx, const unsigned char* data, size_t dataSize);
 	std::string Finalize(SHA256_CTX& ctx);
+
+	std::string HashBinFile(const std::string& fileName);
 }

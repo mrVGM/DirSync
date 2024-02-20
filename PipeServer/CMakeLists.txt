@@ -3,6 +3,8 @@
 add_library (PipeServer
 	"public/PipeServer.h"
 	"private/PipeServer.cpp"
+	"private/Hash.h"
+	"private/Hash.cpp"
  )
 
 target_include_directories(PipeServer INTERFACE PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/public")

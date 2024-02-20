@@ -10,6 +10,8 @@
 #include "Lock.h"
 #include "JSONValue.h"
 
+#include "Hash.h"
+
 #include <iostream>
 #include <Windows.h>
 
@@ -68,7 +70,10 @@ void pipe_server::ServerObject::Start()
 
 		DWORD  cbRead, cbToWrite, cbWritten, dwMode;
 
-		while (true)
+		int numCB = 0;
+		std::string curMessage;
+		bool shutdown = false;
+		while (!shutdown)
 		{
 			// Read from the pipe. 
 
@@ -82,23 +87,31 @@ void pipe_server::ServerObject::Start()
 			char* data = reinterpret_cast<char*>(chBuf);
 			data[cbRead] = 0;
 
-			if (cbRead > 0) {
-				std::string message(data);
-
-				if (message == "shutdown") {
-					jobs::RunSync(jobs::Job::CreateFromLambda([]() {
-						BaseObjectContainer& container = BaseObjectContainer::GetInstance();
-						lock::LockObject* lock = static_cast<lock::LockObject*>(container.GetObjectOfClass(lock::LockMeta::GetInstance()));
-						lock->UnLock();
-					}));
-
-					break;
+			for (int i = 0; i < cbRead; ++i)
+			{
+				if (data[i] == '{')
+				{
+					++numCB;
 				}
 
-				json_parser::JSONValue req(json_parser::ValueType::Object);
-				json_parser::JSONValue::FromString(message, req);
+				if (data[i] == '}')
+				{
+					--numCB;
+				}
+				curMessage.push_back(data[i]);
 
-				HandleReq(req);
+				if (numCB == 0)
+				{
+					json_parser::JSONValue req(json_parser::ValueType::Object);
+					json_parser::JSONValue::FromString(curMessage, req);
+					curMessage.clear();
+
+					if (!HandleReq(req))
+					{
+						shutdown = true;
+						break;
+					}
+				}
 			}
 		}
 
@@ -109,25 +122,41 @@ void pipe_server::ServerObject::Start()
 }
 
 
-void pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
+bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 {
 	using namespace json_parser;
 
 	JSONValue& tmp = const_cast<JSONValue&>(req);
 	const auto& map = tmp.GetAsObj();
 
-	int reqId = static_cast<int>(std::get<double>(map.find("id")->second.m_payload));
 	std::string op = std::get<std::string>(map.find("op")->second.m_payload);
-
+	if (op == "shutdown")
+	{
+		return false;
+	}
+	
+	int reqId = static_cast<int>(std::get<double>(map.find("id")->second.m_payload));
 	if (op == "hash")
 	{
-		return;
+		std::string file = std::get<std::string>(map.find("file")->second.m_payload);
+		jobs::RunAsync(jobs::Job::CreateFromLambda([=]() {
+			std::string hash = crypto::HashBinFile(file);
+			
+			JSONValue res(ValueType::Object);
+			auto& resMap = res.GetAsObj();
+			resMap["id"] = JSONValue(static_cast<double>(reqId));
+			resMap["hash"] = JSONValue(hash);
+			SendResponse(res);
+		}));
+		
+		return true;
 	}
 
 	JSONValue res(ValueType::Object);
 	auto& resMap = res.GetAsObj();
 	resMap["id"] = JSONValue(static_cast<double>(reqId));
 	SendResponse(res);
+	return true;
 }
 
 void pipe_server::ServerObject::SendResponse(const json_parser::JSONValue& res)

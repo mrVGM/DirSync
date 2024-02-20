@@ -6,8 +6,6 @@
 #include "Lock.h"
 #include "PipeServer.h"
 
-#include "Hash.h"
-
 #include <filesystem>
 #include <iostream>
 
@@ -25,19 +23,7 @@ int main(int args, const char** argv)
 		server->Start();
 	}));
 
-	crypto::SHA256_CTX ctx;
-	crypto::Init(ctx);
-	const char* tmp = "Hello";
-	crypto::Update(
-		ctx,
-		(const unsigned char*)tmp,
-		strlen(tmp));
-	std::string res = crypto::Finalize(ctx);
-
-	std::cout << res << std::endl;
-
 	lock->Lock();
-
-
+	
 	return 0;
 }

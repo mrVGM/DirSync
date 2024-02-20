@@ -25,7 +25,7 @@ namespace pipe_server
 		virtual ~ServerObject();
 
 		void Start();
-		void HandleReq(const json_parser::JSONValue& req);
+		bool HandleReq(const json_parser::JSONValue& req);
 		void SendResponse(const json_parser::JSONValue& res);
 	};
 }
