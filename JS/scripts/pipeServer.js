@@ -14,7 +14,7 @@ async function pipe() {
 				stream.write(JSON.stringify(obj));
 
 				const resp = await new Promise((resolve, reject) => {
-					handlers[obj.id] = resp => {
+				handlers[obj.id] = resp => {
 						resolve(resp);
 					};
 				});
@@ -34,9 +34,36 @@ async function pipe() {
 		let server = net.createServer(function (stream) {
 			stream.on('end', function () { });
 
+			let data = "";
+			let cb = 0;
 			stream.on('data', function (c) {
-				const obj = JSON.parse(c);
-				handlers[obj.id](obj);
+				data += c;
+
+				let processed = false;
+				while (!processed) {
+
+					processed = true;
+					for (let i = 0; i < data.length; ++i) {
+						if (data[i] === '{') {
+							++cb;
+						}
+						if (data[i] === '}') {
+							--cb;
+						}
+
+						if (cb === 0) {
+							message = data.substring(0, i + 1);
+							data = data.substring(i + 1);
+
+							const obj = JSON.parse(message);
+							console.log(obj);
+
+							handlers[obj.id](obj);
+							processed = false;
+							break;
+						}
+					}
+				}
 			});
 
 			resolve();

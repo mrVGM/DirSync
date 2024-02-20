@@ -86,20 +86,21 @@
             let fileList = await getFileList(document.prefs.srcDir);
 
             let reqs = fileList.map((x, index) => {
-                const path = require('path');
+            const path = require('path');
                 const req = {
                     id: index,
                     op: 'hash',
                     file: path.join(document.prefs.srcDir, x.path)
                 };
-
-                return send(req);
+            
+                const pr = send(req);
+                return pr;
             });
 
             for (let i = 0; i < reqs.length; ++i) {
                 reqs[i] = await reqs[i];
                 fileList[reqs[i].id].hash = reqs[i].hash;
-            }
+            }            
 
             console.log(fileList);
 

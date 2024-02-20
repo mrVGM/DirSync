@@ -65,7 +65,7 @@ void pipe_server::ServerObject::Start()
 
 	jobs::Job* serverJob = jobs::Job::CreateFromLambda([=]() {
 		const int BUFSIZE = 512;
-		TCHAR  chBuf[BUFSIZE];
+		TCHAR  chBuf[BUFSIZE + 1];
 		BOOL   fSuccess = FALSE;
 
 		DWORD  cbRead, cbToWrite, cbWritten, dwMode;
