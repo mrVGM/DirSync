@@ -10,6 +10,7 @@ target_link_libraries(Main PRIVATE
 	Jobs
 	Lock
 	PipeServer
+	UDP
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
