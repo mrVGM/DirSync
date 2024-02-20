@@ -84,6 +84,7 @@
             const send = await getSendFunc();
 
             let fileList = await getFileList(document.prefs.srcDir);
+            document.overalProgress = [0, fileList.length];
 
             let reqs = fileList.map((x, index) => {
             const path = require('path');
@@ -94,6 +95,12 @@
                 };
             
                 const pr = send(req);
+                pr.then(() => {
+                    if (!pr.fulfilled) {
+                        ++document.overalProgress[0];
+                    }
+                    pr.fulfilled = true;
+                });
                 return pr;
             });
 
