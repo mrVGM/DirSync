@@ -3,7 +3,8 @@
 #include "BaseObjectMeta.h"
 #include "BaseObject.h"
 
-#include <semaphore>
+#include "JSONValue.h"
+#include <Windows.h>
 
 namespace pipe_server
 {
@@ -16,10 +17,15 @@ namespace pipe_server
 
 	class ServerObject : public BaseObject
 	{
+	private:
+		HANDLE m_hPipe = nullptr;
+
 	public:
 		ServerObject();
 		virtual ~ServerObject();
 
 		void Start();
+		void HandleReq(const json_parser::JSONValue& req);
+		void SendResponse(const json_parser::JSONValue& res);
 	};
 }

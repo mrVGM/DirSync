@@ -3,7 +3,7 @@
 add_library (PipeServer
 	"public/PipeServer.h"
 	"private/PipeServer.cpp"
-)
+ )
 
 target_include_directories(PipeServer INTERFACE PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/public")
 target_include_directories(PipeServer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/private")
@@ -12,6 +12,7 @@ target_link_libraries(PipeServer PUBLIC
 	Base
 	Jobs
 	Lock
+	JSONParser
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

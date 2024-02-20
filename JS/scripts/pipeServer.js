@@ -15,7 +15,13 @@ let server = net.createServer(function(stream) {
         L('Server: on data:', c.toString());
     });
 
-    stream.write("Hello");
+
+    const req = {
+        id: 0,
+        op: "noop",
+        message: "Hello"
+    }
+    stream.write(JSON.stringify(req));
     setTimeout(() => {
         stream.write("shutdown");
     }, 5000);

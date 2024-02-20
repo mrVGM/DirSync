@@ -17,7 +17,23 @@ add_library (Parser
 	"public/symbol.h"
 	"private/tokenizer.cpp"
 	"private/tokenizer.h"
- "private/codeSource.cpp" "private/grammar.cpp" "private/parser.cpp" "private/parserState.cpp" "private/parserTable.cpp" "private/rule.cpp" "private/symbol.cpp" "private/tokenizer.cpp" "private/tokenizer.h" "public/codeSource.h" "public/grammar.h" "public/parser.h" "public/parserState.h" "public/parserTable.h" "public/rule.h" "public/symbol.h")
+	"private/codeSource.cpp"
+	"private/grammar.cpp"
+	"private/parser.cpp"
+	"private/parserState.cpp"
+	"private/parserTable.cpp"
+	"private/rule.cpp"
+	"private/symbol.cpp"
+	"private/tokenizer.cpp"
+	"private/tokenizer.h"
+	"public/codeSource.h"
+	"public/grammar.h"
+	"public/parser.h"
+	"public/parserState.h"
+	"public/parserTable.h"
+	"public/rule.h"
+	"public/symbol.h"
+)
 
 target_include_directories(Parser INTERFACE PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/public")
 target_include_directories(Parser PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/private")
