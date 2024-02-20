@@ -86,30 +86,56 @@
             let fileList = await getFileList(document.prefs.srcDir);
             document.overalProgress = [0, fileList.length];
 
-            let reqs = fileList.map((x, index) => {
-            const path = require('path');
-                const req = {
-                    id: index,
-                    op: 'hash',
-                    file: path.join(document.prefs.srcDir, x.path)
-                };
+            {
+                let reqs = fileList.map((x, index) => {
+                    const path = require('path');
+                    const req = {
+                        op: 'hash',
+                        file: path.join(document.prefs.srcDir, x.path)
+                    };
             
-                const pr = send(req);
-                pr.then(() => {
-                    if (!pr.fulfilled) {
-                        ++document.overalProgress[0];
-                    }
-                    pr.fulfilled = true;
+                    const pr = send(req);
+                    pr.then(() => {
+                        if (!pr.fulfilled) {
+                            ++document.overalProgress[0];
+                        }
+                        pr.fulfilled = true;
+                    });
+                    return pr;
                 });
-                return pr;
-            });
 
-            for (let i = 0; i < reqs.length; ++i) {
-                reqs[i] = await reqs[i];
-                fileList[reqs[i].id].hash = reqs[i].hash;
-            }            
+                for (let i = 0; i < reqs.length; ++i) {
+                    reqs[i] = await reqs[i];
+                    fileList[reqs[i].id].hash = reqs[i].hash;
+                }
+                console.log(fileList);
+            }
 
-            console.log(fileList);
+            {
+                let reqs = fileList.map((x, index) => {
+                    const path = require('path');
+                    const req = {
+                        op: 'set_file_id',
+                        file: path.join(document.prefs.srcDir, x.path),
+                        file_id: index
+                    };
+
+                    const pr = send(req);
+                    pr.then(() => {
+                        if (!pr.fulfilled) {
+                            ++document.overalProgress[0];
+                        }
+                        pr.fulfilled = true;
+                    });
+                    return pr;
+                });
+
+                for (let i = 0; i < reqs.length; ++i) {
+                    reqs[i] = await reqs[i];
+                    fileList[reqs[i].id].hash = reqs[i].hash;
+                }
+            }
+
 
             send({
                 id: 0,

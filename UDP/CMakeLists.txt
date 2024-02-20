@@ -3,7 +3,9 @@
 add_library (UDP
 	"public/UDP.h"
 	"private/UDP.cpp"
- )
+	"public/FileManager.h"
+	"private/FileManager.cpp"
+)
 
 target_include_directories(UDP INTERFACE PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/public")
 target_include_directories(UDP PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/private")

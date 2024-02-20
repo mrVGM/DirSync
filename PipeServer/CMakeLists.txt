@@ -15,6 +15,7 @@ target_link_libraries(PipeServer PUBLIC
 	Jobs
 	Lock
 	JSONParser
+	UDP
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

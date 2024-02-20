@@ -10,7 +10,9 @@ async function pipe() {
 
 	let sendPipe = new Promise((resolve, reject) => {
 		let server = net.createServer(function (stream) {
+			let reqIndex = 0;
 			async function send(obj) {
+				obj.id = reqIndex++;
 				stream.write(JSON.stringify(obj));
 
 				const resp = await new Promise((resolve, reject) => {

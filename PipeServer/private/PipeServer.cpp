@@ -12,6 +12,8 @@
 
 #include "Hash.h"
 
+#include "FileManager.h"
+
 #include <iostream>
 #include <Windows.h>
 
@@ -21,6 +23,8 @@ namespace
 	pipe_server::ServerMeta m_instance;
 	jobs::JobSystem* m_serverJS = nullptr;
 	jobs::JobSystem* m_serverResponseJS = nullptr;
+
+	udp::FileManagerObject* m_fileManager = nullptr;
 }
 
 pipe_server::ServerMeta::ServerMeta() :
@@ -176,6 +180,34 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 			SendResponse(res);
 		}));
 		
+		return true;
+	}
+
+	if (op == "set_file_id")
+	{
+		std::string file = std::get<std::string>(map.find("file")->second.m_payload);
+		int fileId = static_cast<int>(std::get<double>(map.find("file_id")->second.m_payload));
+
+		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+			if (!m_fileManager)
+			{
+				BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+				BaseObject* obj = container.GetObjectOfClass(udp::FileManagerMeta::GetInstance());
+
+				m_fileManager = static_cast<udp::FileManagerObject*>(obj);
+				if (!m_fileManager)
+				{
+					m_fileManager = new udp::FileManagerObject();
+				}
+			}
+
+			m_fileManager->RegisterFile(fileId, file);
+			JSONValue res(ValueType::Object);
+			auto& resMap = res.GetAsObj();
+			resMap["id"] = JSONValue(static_cast<double>(fileId));
+			SendResponse(res);
+		}));
+
 		return true;
 	}
 
