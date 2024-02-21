@@ -110,6 +110,7 @@
                 for (let i = 0; i < reqs.length; ++i) {
                     reqs[i] = await reqs[i];
                     fileList[reqs[i].id].hash = reqs[i].hash;
+                    fileList[reqs[i].id].fileSize = reqs[i].fileSize;
                 }
                 console.log(fileList);
             }

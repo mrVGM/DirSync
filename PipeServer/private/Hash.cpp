@@ -194,29 +194,31 @@ std::string crypto::Finalize(SHA256_CTX& ctx)
 	return hashStr;
 }
 
-std::string crypto::HashBinFile(const std::string& fileName)
+void crypto::HashBinFile(const std::string& fileName, std::string& hash, size_t& fileSize)
 {
+	hash = "";
+	fileSize = 0;
+
 	const size_t buffSize = 1024;
 	unsigned char* buff = new unsigned char[buffSize];
 	FILE* f = nullptr;
 	fopen_s(&f, fileName.c_str(), "rb");
 	if (!f)
 	{
-		return "";
+		return;
 	}
 
 	SHA256_CTX ctx;
 	Init(ctx);
 	size_t read;
 	read = fread_s(buff, buffSize, sizeof(unsigned char), buffSize, f);
-	size_t totalRead = read;
+	fileSize = read;
 	while (read > 0)
 	{
 		Update(ctx, buff, read);
 		read = fread_s(buff, buffSize, sizeof(unsigned char), buffSize, f);
-		totalRead += read;
+		fileSize += read;
 	}
-	std::string res = Finalize(ctx);
-	delete buff;
-	return res;
+	hash = Finalize(ctx);
+	delete[] buff;
 }

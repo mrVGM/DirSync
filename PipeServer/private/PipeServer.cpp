@@ -174,12 +174,15 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 	{
 		std::string file = std::get<std::string>(map.find("file")->second.m_payload);
 		jobs::RunAsync(jobs::Job::CreateFromLambda([=]() {
-			std::string hash = crypto::HashBinFile(file);
+			std::string hash;
+			size_t fileSize;
+			crypto::HashBinFile(file, hash, fileSize);
 			
 			JSONValue res(ValueType::Object);
 			auto& resMap = res.GetAsObj();
 			resMap["id"] = JSONValue(static_cast<double>(reqId));
 			resMap["hash"] = JSONValue(hash);
+			resMap["fileSize"] = JSONValue(static_cast<double>(fileSize));
 			SendResponse(res);
 		}));
 		

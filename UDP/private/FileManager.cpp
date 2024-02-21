@@ -60,5 +60,5 @@ void udp::FileEntry::Init(int id, const std::string& path)
 {
 	m_id = id;
 	m_path = path;
-	m_buff = new char[2 * 1024 * 1024];
+	m_buff = new char[8 * 1024 * 1024];
 }
