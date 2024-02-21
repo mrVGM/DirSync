@@ -14,6 +14,8 @@
 
 #include "FileManager.h"
 
+#include "UDP.h"
+
 #include <iostream>
 #include <Windows.h>
 
@@ -167,6 +169,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 	}
 	
 	int reqId = static_cast<int>(std::get<double>(map.find("id")->second.m_payload));
+	
 	if (op == "hash")
 	{
 		std::string file = std::get<std::string>(map.find("file")->second.m_payload);
@@ -204,10 +207,49 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 			m_fileManager->RegisterFile(fileId, file);
 			JSONValue res(ValueType::Object);
 			auto& resMap = res.GetAsObj();
-			resMap["id"] = JSONValue(static_cast<double>(fileId));
+			resMap["id"] = JSONValue(static_cast<double>(reqId));
 			SendResponse(res);
 		}));
 
+		return true;
+	}
+
+	if (op == "run_udp_server")
+	{
+		udp::Init();
+
+		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+			new udp::UDPServerObject();
+
+			JSONValue res(ValueType::Object);
+			auto& resMap = res.GetAsObj();
+			if (reqId)
+			{
+				bool t = true;
+			}
+
+			resMap["id"] = JSONValue(static_cast<double>(reqId));
+			SendResponse(res);
+		}));
+		
+		return true;
+	}
+
+	if (op == "run_udp_client")
+	{
+		udp::Init();
+		udp::UDPClient();
+
+		JSONValue res(ValueType::Object);
+		auto& resMap = res.GetAsObj();
+
+		if (reqId)
+		{
+			bool t = true;
+		}
+
+		resMap["id"] = JSONValue(static_cast<double>(reqId));
+		SendResponse(res);
 		return true;
 	}
 
@@ -233,3 +275,4 @@ void pipe_server::ServerObject::SendResponse(const json_parser::JSONValue& res)
 		);
 	}));
 }
+

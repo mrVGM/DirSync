@@ -1,16 +1,78 @@
 #include "UDP.h"
 
+#include "JobSystemMeta.h"
+#include "JobSystem.h"
+#include "Job.h"
+
 #include <WinSock2.h>
 
 #include <iostream>
 
+namespace
+{
+    bool m_udpInitialized = false;
+    
+    udp::UDPServerMeta m_instance;
+    udp::UDPServerJSMeta m_udpServerJSMeta;
+
+    jobs::JobSystem* m_udpServerJS = nullptr;
+}
+
+udp::UDPServerJSMeta::UDPServerJSMeta() :
+    BaseObjectMeta(&jobs::JobSystemMeta::GetInstance())
+{
+}
+
+const udp::UDPServerJSMeta& udp::UDPServerJSMeta::GetInstance()
+{
+    return m_udpServerJSMeta;
+}
+
+udp::UDPServerMeta::UDPServerMeta() :
+    BaseObjectMeta(nullptr)
+{
+}
+
+const udp::UDPServerMeta& udp::UDPServerMeta::GetInstance()
+{
+    return m_instance;
+}
+
+
+udp::UDPServerObject::UDPServerObject() :
+    BaseObject(UDPServerMeta::GetInstance())
+{
+    udp::Init();
+
+    if (!m_udpServerJS)
+    {
+        m_udpServerJS = new jobs::JobSystem(udp::UDPServerJSMeta::GetInstance(), 1);
+    }
+
+    m_udpServerJS->ScheduleJob(jobs::Job::CreateFromLambda([]() {
+        udp::UDPServer();
+    }));
+}
+
+udp::UDPServerObject::~UDPServerObject()
+{
+}
+
+
 void udp::Init()
 {
+    if (m_udpInitialized)
+    {
+        return;
+    }
+
     WSADATA wsaData;
     int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (res != NO_ERROR) {
         std::cout << "WSAStartup failed with error " << res << std::endl;
     }
+
+    m_udpInitialized = true;
 }
 
 void udp::UDPServer()
@@ -97,4 +159,26 @@ void udp::UDPClient()
     int bytes_received = recvfrom(SendSocket, buff, buffLen, 0 /* no flags*/, (SOCKADDR*)&SenderAddr, &SenderAddrSize);
 
     bool t = true;
+}
+
+void udp::UDPReq::UpBit(unsigned int bitNumber)
+{
+    unsigned int byte = bitNumber / 8;
+    unsigned int bitOffset = bitNumber % 8;
+
+    unsigned char byteMask = 1;
+    byteMask = byteMask << bitOffset;
+
+    m_mask[byte] |= byteMask;
+}
+
+bool udp::UDPReq::GetBitState(unsigned int bitNumber)
+{
+    unsigned int byte = bitNumber / 8;
+    unsigned int bitOffset = bitNumber % 8;
+
+    unsigned char byteMask = 1;
+    byteMask = byteMask << bitOffset;
+
+    return (m_mask[byte] & byteMask);
 }

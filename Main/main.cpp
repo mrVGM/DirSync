@@ -20,20 +20,16 @@ int main(int args, const char** argv)
 	json_parser::Boot();
 	jobs::Boot();
 
-	udp::Init();
+	udp::UDPReq req;
+	req.UpBit(34);
+	bool t = req.GetBitState(34);
+	t = req.GetBitState(33);
+	t = req.GetBitState(35);
 
 	jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
 		pipe_server::ServerObject* server = new pipe_server::ServerObject();
 		server->Start();
 		server->StartOut();
-	}));
-
-	jobs::RunAsync(jobs::Job::CreateFromLambda([=]() {
-		udp::UDPServer();
-	}));
-
-	jobs::RunAsync(jobs::Job::CreateFromLambda([=]() {
-		udp::UDPClient();
 	}));
 
 	lock->Lock();

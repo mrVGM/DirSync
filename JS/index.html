@@ -24,6 +24,7 @@
                 <div id="start_server" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Start Server</div>
                 <div id="update_local_files" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Update</div>
                 <div id="pipe_server" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Pipe Server</div>
+                <div id="quit" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Quit</div>
             </div>
 
             <div id="cur_file" style="user-select: none;"></div>
@@ -79,9 +80,11 @@
             await checkLocalFiles();
         });
 
+        let send = undefined;
+
         document.getElementById("pipe_server").addEventListener('click', async event => {
             const { getSendFunc } = await require('./scripts/pipeserver');
-            const send = await getSendFunc();
+            send = await getSendFunc();
 
             let fileList = await getFileList(document.prefs.srcDir);
             document.overalProgress = [0, fileList.length];
@@ -131,14 +134,21 @@
                 });
 
                 for (let i = 0; i < reqs.length; ++i) {
-                    reqs[i] = await reqs[i];
-                    fileList[reqs[i].id].hash = reqs[i].hash;
+                    await reqs[i];
                 }
             }
 
+            send({
+                op: 'run_udp_server'
+            });
 
             send({
-                id: 0,
+                op: 'run_udp_client'
+            });
+        });
+
+        document.getElementById("quit").addEventListener('click', async event => {
+            send({
                 op: 'shutdown'
             });
         });
