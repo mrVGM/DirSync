@@ -103,6 +103,6 @@ const udp::FileEntry::KB& udp::FileEntry::GetKB(size_t index)
 		fseek(m_f, m_curPos, 0);
 	}
 
-	fread_s(m_buff, 1024 * sizeof(KB), sizeof(KB), 1024, m_f);
+	fread_s(m_buff, 8 * 1024 * sizeof(KB), sizeof(KB), 8 * 1024, m_f);
 	return m_buff[index - startKB];
 }
