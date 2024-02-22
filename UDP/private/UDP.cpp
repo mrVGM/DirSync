@@ -3,6 +3,7 @@
 #include "JobSystemMeta.h"
 #include "JobSystem.h"
 #include "Job.h"
+#include "Jobs.h"
 
 #include <WinSock2.h>
 #include <iostream>
@@ -116,14 +117,16 @@ void udp::UDPServer()
         {
             break;
         }
-    }
 
-    char sendBuf[] = { 'h', 'e', 'l', 'l', 'o', '\0' };
-    int sendBufLen = (int)(sizeof(sendBuf) - 1);
-    int sendResult = sendto(serverSocket,
-        sendBuf, sendBufLen, 0, (SOCKADDR*)&SenderAddr, SenderAddrSize);
-    if (sendResult == SOCKET_ERROR) {
-        std::cout << "Sending back response got an error: " << WSAGetLastError();
+        jobs::RunAsync(jobs::Job::CreateFromLambda([=]() {
+            udp::UDPRes res;
+            int sendResult = sendto(serverSocket,
+                reinterpret_cast<char*>(&res), sizeof(res), 0, (SOCKADDR*)&SenderAddr, SenderAddrSize);
+
+            if (sendResult == SOCKET_ERROR) {
+                std::cout << "Sending back response got an error: " << WSAGetLastError();
+            }
+        }));
     }
 }
 
