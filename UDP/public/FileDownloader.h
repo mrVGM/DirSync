@@ -5,6 +5,7 @@
 
 #include "UDP.h"
 
+#include <functional>
 #include <string>
 
 namespace udp
@@ -38,8 +39,10 @@ namespace udp
 
 		void* m_clientSock = nullptr;
 
+		std::function<void()> m_downloadFinished;
+
 	public:
-		FileDownloaderObject(int fileId, size_t fileSize, const std::string& path);
+		FileDownloaderObject(int fileId, size_t fileSize, const std::string& path, const std::function<void()>& downloadFinished);
 		virtual ~FileDownloaderObject();
 	};
 }

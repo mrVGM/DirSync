@@ -48,11 +48,12 @@ const udp::FileDownloaderMeta& udp::FileDownloaderMeta::GetInstance()
 }
 
 
-udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, const std::string& path) :
+udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, const std::string& path, const std::function<void()>& downloadFinished) :
     BaseObject(FileDownloaderMeta::GetInstance()),
     m_fileId(fileId),
     m_fileSize(fileSize),
-    m_path(path)
+    m_path(path),
+    m_downloadFinished(downloadFinished)
 {
     udp::Init();
 
@@ -87,6 +88,7 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
 
             jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
                 delete this;
+                downloadFinished();
             }));
         };
 
