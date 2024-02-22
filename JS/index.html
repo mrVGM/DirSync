@@ -144,11 +144,12 @@
             });
 
             const fileEntry = fileList[0];
+            const path = require('path');
             send({
                 op: 'run_udp_client',
                 fileId: 0,
                 fileSize: fileEntry.fileSize,
-                path: fileEntry.path
+                path: path.join(document.prefs.dstDir, fileEntry.path)
             });
         });
 

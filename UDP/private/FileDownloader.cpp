@@ -135,6 +135,9 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
         size_t numKB = m_fileSize / 1024 + 1;
         size_t numChunks = numKB / (8 * 1024) + 1;
 
+        FILE* f = nullptr;
+        fopen_s(&f, m_path.c_str(), "wb");
+
         for (size_t i = 0; i < numChunks; ++i)
         {
             size_t startKB = i * 8 * 1024;
@@ -173,12 +176,23 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
                     }
                 }
             }
+
+            size_t startByte = i * 8 * 1024 * 1024;
+            for (size_t j = 0; j < 8 * 1024; ++j)
+            {
+                size_t cur = startByte + j * 1024;
+                if (cur >= m_fileSize)
+                {
+                    break;
+                }
+
+                size_t endByte = min(m_fileSize, cur + 1024);
+                fwrite(m_dataReceived[j].m_data, sizeof(char), endByte - cur, f);
+            }
+
         }
-
-        bool t = true;
-
+        fclose(f);
     }));
-
 }
 
 udp::FileDownloaderObject::~FileDownloaderObject()
