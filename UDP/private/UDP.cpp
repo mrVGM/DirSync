@@ -119,48 +119,21 @@ void udp::UDPServer()
         }
 
         jobs::RunAsync(jobs::Job::CreateFromLambda([=]() {
-            udp::UDPRes res;
-            int sendResult = sendto(serverSocket,
-                reinterpret_cast<char*>(&res), sizeof(res), 0, (SOCKADDR*)&SenderAddr, SenderAddrSize);
+            for (int i = 0; i < 8 * 1024; ++i)
+            {
+                udp::UDPRes res;
+                res.m_offset = i;
+                res.m_valid = true;
 
-            if (sendResult == SOCKET_ERROR) {
-                std::cout << "Sending back response got an error: " << WSAGetLastError();
+                int sendResult = sendto(serverSocket,
+                    reinterpret_cast<char*>(&res), sizeof(res), 0, (SOCKADDR*)&SenderAddr, SenderAddrSize);
+
+                if (sendResult == SOCKET_ERROR) {
+                    std::cout << "Sending back response got an error: " << WSAGetLastError();
+                }
             }
         }));
     }
-}
-
-
-void udp::UDPClient()
-{
-    SOCKET SendSocket = INVALID_SOCKET;
-    SendSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (SendSocket == INVALID_SOCKET) {
-        std::cout << "socket failed with error " << SendSocket << std::endl;
-        return;
-    }
-
-    udp::UDPReq req;
-    
-    struct sockaddr_in ClientAddr;
-    int clientAddrSize = (int)sizeof(ClientAddr);
-    short port = 27015;
-    const char* local_host = "127.0.0.1";
-    ClientAddr.sin_family = AF_INET;
-    ClientAddr.sin_port = htons(port);
-    ClientAddr.sin_addr.s_addr = inet_addr(local_host);
-    
-    int clientResult = sendto(SendSocket,
-        reinterpret_cast<char*>(&req), sizeof(req), 0, (SOCKADDR*)&ClientAddr, clientAddrSize);
-
-    char buff[1025];
-    int buffLen = 1024;
-
-    struct sockaddr_in SenderAddr;
-    int SenderAddrSize = sizeof(SenderAddr);
-    int bytes_received = recvfrom(SendSocket, buff, buffLen, 0 /* no flags*/, (SOCKADDR*)&SenderAddr, &SenderAddrSize);
-
-    bool t = true;
 }
 
 void udp::UDPReq::UpBit(unsigned int bitNumber)

@@ -3,6 +3,8 @@
 #include "BaseObjectMeta.h"
 #include "BaseObject.h"
 
+#include "UDP.h"
+
 #include <string>
 
 namespace udp
@@ -28,6 +30,8 @@ namespace udp
 		size_t m_fileSize = 0;
 		size_t m_filePosition = 0;
 		std::string m_path;
+
+		udp::UDPRes* m_dataReceived = nullptr;
 
 		void* m_clientSock = nullptr;
 

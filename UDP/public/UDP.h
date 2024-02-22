@@ -18,6 +18,7 @@ namespace udp
 
 	struct UDPRes
 	{
+		bool m_valid = false;
 		unsigned int m_fileId;
 		unsigned int m_offset;
 		unsigned char m_data[1024] = {};
@@ -46,5 +47,4 @@ namespace udp
 
 	void Init();
 	void UDPServer();
-	void UDPClient();
 }

@@ -57,6 +57,7 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
     udp::Init();
 
     m_clientSock = new ClientSocket();
+    m_dataReceived = new udp::UDPRes[8 * 1024];
 
     if (!m_fileDownloaderJS)
     {
@@ -88,6 +89,21 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
 
             void Do() override
             {
+                bool missing = false;
+                for (int i = 0; i < 8 * 1024; ++i)
+                {
+                    if (!m_self.m_dataReceived[i].m_valid)
+                    {
+                        missing = true;
+                        break;
+                    }
+                }
+
+                if (!missing)
+                {
+                    return;
+                }
+
                 ClientSocket* clientSock = static_cast<ClientSocket*>(m_self.m_clientSock);
 
                 SOCKET& SendSocket = clientSock->m_socket;
@@ -111,18 +127,23 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
         };
         jobs::RunAsync(new PingServer(*this));
 
-        char buff[1025];
-        int buffLen = 1024;
+        udp::UDPRes res;
 
         while (true)
         {
             struct sockaddr_in SenderAddr;
             int SenderAddrSize = sizeof(SenderAddr);
-            int bytes_received = recvfrom(SendSocket, buff, buffLen, 0 /* no flags*/, (SOCKADDR*)&SenderAddr, &SenderAddrSize);
+            int bytes_received = recvfrom(SendSocket, reinterpret_cast<char*>(&res), sizeof(res), 0 /* no flags*/, (SOCKADDR*)&SenderAddr, &SenderAddrSize);
 
-            bool t = true;
+            if (bytes_received == SOCKET_ERROR)
+            {
+                std::cout << "recvfrom failed with error" << WSAGetLastError();
+            }
+            else
+            {
+                m_dataReceived[res.m_offset - m_filePosition] = res;
+            }
         }
-
     }));
 
 }
@@ -130,4 +151,5 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
 udp::FileDownloaderObject::~FileDownloaderObject()
 {
     delete m_clientSock;
+    delete[] m_dataReceived;
 }
