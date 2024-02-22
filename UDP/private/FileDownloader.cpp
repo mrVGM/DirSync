@@ -77,18 +77,39 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
             return;
         }
 
+        auto itemFinished = [=]() {
+            --m_toFinish;
+
+            if (m_toFinish > 0)
+            {
+                return;
+            }
+
+            jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+                delete this;
+            }));
+        };
+
         class PingServer : public jobs::Job
         {
         private:
             FileDownloaderObject& m_self;
+            jobs::Job* m_done = nullptr;
         public:
-            PingServer(FileDownloaderObject& self) :
-                m_self(self)
+            PingServer(FileDownloaderObject& self, jobs::Job* done) :
+                m_self(self),
+                m_done(done)
             {
             }
 
             void Do() override
             {
+                if (m_self.m_done)
+                {
+                    jobs::RunSync(m_done);
+                    return;
+                }
+
                 udp::UDPReq req;
                 req.m_offset = m_self.m_fileOffset;
                 req.m_fileId = m_self.m_fileId;
@@ -105,6 +126,7 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
 
                 if (!missing)
                 {
+                    jobs::RunAsync(new PingServer(m_self, m_done));
                     return;
                 }
 
@@ -125,10 +147,10 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
                     reinterpret_cast<char*>(&req), sizeof(req), 0, (SOCKADDR*)&ClientAddr, clientAddrSize);
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(5));
-                jobs::RunAsync(new PingServer(m_self));
+                jobs::RunAsync(new PingServer(m_self, m_done));
             }
         };
-        jobs::RunAsync(new PingServer(*this));
+        jobs::RunAsync(new PingServer(*this, jobs::Job::CreateFromLambda(itemFinished)));
 
         udp::UDPRes res;
 
@@ -192,6 +214,9 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
 
         }
         fclose(f);
+
+        m_done = true;
+        jobs::RunSync(jobs::Job::CreateFromLambda(itemFinished));
     }));
 }
 

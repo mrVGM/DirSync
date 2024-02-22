@@ -26,6 +26,9 @@ namespace udp
 	class FileDownloaderObject : public BaseObject
 	{
 	private:
+		int m_toFinish = 2;
+		bool m_done = false;
+
 		int m_fileId = -1;
 		size_t m_fileSize = 0;
 		size_t m_fileOffset = 0;
