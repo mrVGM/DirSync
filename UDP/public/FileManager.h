@@ -10,13 +10,23 @@ namespace udp
 {
 	struct FileEntry
 	{
+		struct KB
+		{
+			char m_data[1024];
+		};
+
 		int m_id = -1;
 		std::string m_path;
-		char* m_buff = nullptr;
+
+		size_t m_curPos = 0;
+		KB* m_buff = nullptr;
+
+		FILE* m_f = nullptr;
 		
 		~FileEntry();
 
 		void Init(int id, const std::string& path);
+		const KB& GetKB(size_t index);
 	};
 
 
@@ -37,5 +47,6 @@ namespace udp
 		virtual ~FileManagerObject();
 
 		FileEntry& RegisterFile(int id, const std::string& path);
+		FileEntry* GetFile(int id);
 	};
 }

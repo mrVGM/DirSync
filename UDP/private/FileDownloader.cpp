@@ -89,13 +89,17 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
 
             void Do() override
             {
+                udp::UDPReq req;
+                req.m_offset = m_self.m_fileOffset;
+                req.m_fileId = m_self.m_fileId;
+
                 bool missing = false;
                 for (int i = 0; i < 8 * 1024; ++i)
                 {
                     if (!m_self.m_dataReceived[i].m_valid)
                     {
+                        req.UpBit(i);
                         missing = true;
-                        break;
                     }
                 }
 
@@ -109,7 +113,6 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
                 SOCKET& SendSocket = clientSock->m_socket;
                 sockaddr_in& ClientAddr = clientSock->ClientAddr;
 
-                udp::UDPReq req;
 
                 int clientAddrSize = (int)sizeof(ClientAddr);
                 short port = 27015;
@@ -129,21 +132,51 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
 
         udp::UDPRes res;
 
-        while (true)
-        {
-            struct sockaddr_in SenderAddr;
-            int SenderAddrSize = sizeof(SenderAddr);
-            int bytes_received = recvfrom(SendSocket, reinterpret_cast<char*>(&res), sizeof(res), 0 /* no flags*/, (SOCKADDR*)&SenderAddr, &SenderAddrSize);
+        size_t numKB = m_fileSize / 1024 + 1;
+        size_t numChunks = numKB / (8 * 1024) + 1;
 
-            if (bytes_received == SOCKET_ERROR)
+        for (size_t i = 0; i < numChunks; ++i)
+        {
+            size_t startKB = i * 8 * 1024;
+            m_fileOffset = startKB;
+            if (numKB - startKB < 8 * 1024)
             {
-                std::cout << "recvfrom failed with error" << WSAGetLastError();
+                for (int j = numKB - startKB; j < 1024; ++j)
+                {
+                    m_dataReceived[j].m_valid = true;
+                }
             }
-            else
+
+            bool missing = true;
+            while (missing)
             {
-                m_dataReceived[res.m_offset - m_filePosition] = res;
+                struct sockaddr_in SenderAddr;
+                int SenderAddrSize = sizeof(SenderAddr);
+                int bytes_received = recvfrom(SendSocket, reinterpret_cast<char*>(&res), sizeof(res), 0 /* no flags*/, (SOCKADDR*)&SenderAddr, &SenderAddrSize);
+
+                if (bytes_received == SOCKET_ERROR)
+                {
+                    std::cout << "recvfrom failed with error" << WSAGetLastError();
+                }
+                else
+                {
+                    m_dataReceived[res.m_offset - startKB] = res;
+                }
+
+                missing = false;
+                for (int i = 0; i < 8 * 1024; ++i)
+                {
+                    if (!m_dataReceived[i].m_valid)
+                    {
+                        missing = true;
+                        break;
+                    }
+                }
             }
         }
+
+        bool t = true;
+
     }));
 
 }

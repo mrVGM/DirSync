@@ -13,7 +13,7 @@ namespace udp
 		unsigned char m_mask[1024] = {};
 
 		void UpBit(unsigned int bitNumber);
-		bool GetBitState(unsigned int bitNumber);
+		bool GetBitState(unsigned int bitNumber) const;
 	};
 
 	struct UDPRes

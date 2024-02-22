@@ -28,7 +28,7 @@ namespace udp
 	private:
 		int m_fileId = -1;
 		size_t m_fileSize = 0;
-		size_t m_filePosition = 0;
+		size_t m_fileOffset = 0;
 		std::string m_path;
 
 		udp::UDPRes* m_dataReceived = nullptr;

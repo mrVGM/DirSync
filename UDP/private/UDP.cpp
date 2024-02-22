@@ -5,6 +5,12 @@
 #include "Job.h"
 #include "Jobs.h"
 
+#include "FileManager.h"
+
+#include "UDP.h"
+
+#include "BaseObjectContainer.h"
+
 #include <WinSock2.h>
 #include <iostream>
 
@@ -16,6 +22,7 @@ namespace
     udp::UDPServerJSMeta m_udpServerJSMeta;
 
     jobs::JobSystem* m_udpServerJS = nullptr;
+    udp::FileManagerObject* m_fileManager = nullptr;
 }
 
 udp::UDPServerJSMeta::UDPServerJSMeta() :
@@ -42,6 +49,14 @@ const udp::UDPServerMeta& udp::UDPServerMeta::GetInstance()
 udp::UDPServerObject::UDPServerObject() :
     BaseObject(UDPServerMeta::GetInstance())
 {
+    if (!m_fileManager)
+    {
+        BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+        BaseObject* obj = container.GetObjectOfClass(FileManagerMeta::GetInstance());
+
+        m_fileManager = static_cast<udp::FileManagerObject*>(obj);
+    }
+
     udp::Init();
 
     if (!m_udpServerJS)
@@ -50,7 +65,75 @@ udp::UDPServerObject::UDPServerObject() :
     }
 
     m_udpServerJS->ScheduleJob(jobs::Job::CreateFromLambda([]() {
-        udp::UDPServer();
+        SOCKET serverSocket = INVALID_SOCKET;
+        serverSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        if (serverSocket == INVALID_SOCKET) {
+            std::cout << "socket failed with error " << serverSocket << std::endl;
+            return;
+        }
+
+        struct sockaddr_in serverAddr;
+        short port = 27015;
+
+        // Bind the socket to any address and the specified port.
+        serverAddr.sin_family = AF_INET;
+        serverAddr.sin_port = htons(port);
+        // OR, you can do serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+        serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+        if (bind(serverSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr))) {
+            std::cout << "bind failed with error " << WSAGetLastError() << std::endl;
+            return;
+        }
+
+        udp::UDPReq req;
+        int bytes_received;
+
+        // Keep a seperate address struct to store sender information. 
+        struct sockaddr_in SenderAddr;
+        int SenderAddrSize = sizeof(SenderAddr);
+        std::cout << "Receiving datagrams on " << "127.0.0.1" << std::endl;
+
+        while (true)
+        {
+            bytes_received = recvfrom(serverSocket, reinterpret_cast<char*>(&req), sizeof(req), 0 /* no flags*/, (SOCKADDR*)&SenderAddr, &SenderAddrSize);
+            if (bytes_received == SOCKET_ERROR) {
+                std::cout << "recvfrom failed with error" << WSAGetLastError();
+                continue;
+            }
+
+            if (!req.m_shouldContinue)
+            {
+                break;
+            }
+
+            jobs::RunAsync(jobs::Job::CreateFromLambda([=]() {
+                FileEntry* fileEntry = m_fileManager->GetFile(req.m_fileId);
+
+                for (int i = 0; i < 8 * 1024; ++i)
+                {
+                    if (!req.GetBitState(i))
+                    {
+                        continue;
+                    }
+
+                    const FileEntry::KB& kb = fileEntry->GetKB(req.m_offset + i);
+
+                    udp::UDPRes res;
+                    res.m_offset = i;
+                    res.m_valid = true;
+                    memcpy(res.m_data, &kb, sizeof(kb));
+
+                    int sendResult = sendto(serverSocket,
+                        reinterpret_cast<char*>(&res), sizeof(res), 0, (SOCKADDR*)&SenderAddr, SenderAddrSize);
+
+                    if (sendResult == SOCKET_ERROR) {
+                        std::cout << "Sending back response got an error: " << WSAGetLastError();
+                    }
+                }
+            }));
+        }
+
     }));
 }
 
@@ -77,63 +160,7 @@ void udp::Init()
 
 void udp::UDPServer()
 {
-    SOCKET serverSocket = INVALID_SOCKET;
-    serverSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (serverSocket == INVALID_SOCKET) {
-        std::cout << "socket failed with error " << serverSocket << std::endl;
-        return;
-    }
-
-    struct sockaddr_in serverAddr;
-    short port = 27015;
-
-    // Bind the socket to any address and the specified port.
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(port);
-    // OR, you can do serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-    if (bind(serverSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr))) {
-        std::cout << "bind failed with error " << WSAGetLastError() << std::endl;
-        return;
-    }
-
-    udp::UDPReq req;
-    int bytes_received;
-
-    // Keep a seperate address struct to store sender information. 
-    struct sockaddr_in SenderAddr;
-    int SenderAddrSize = sizeof(SenderAddr);
-    std::cout << "Receiving datagrams on " << "127.0.0.1" << std::endl;
-
-    while (true)
-    {
-        bytes_received = recvfrom(serverSocket, reinterpret_cast<char*>(&req), sizeof(req), 0 /* no flags*/, (SOCKADDR*)&SenderAddr, &SenderAddrSize);
-        if (bytes_received == SOCKET_ERROR) {
-            std::cout << "recvfrom failed with error" << WSAGetLastError();
-        }
-
-        if (!req.m_shouldContinue)
-        {
-            break;
-        }
-
-        jobs::RunAsync(jobs::Job::CreateFromLambda([=]() {
-            for (int i = 0; i < 8 * 1024; ++i)
-            {
-                udp::UDPRes res;
-                res.m_offset = i;
-                res.m_valid = true;
-
-                int sendResult = sendto(serverSocket,
-                    reinterpret_cast<char*>(&res), sizeof(res), 0, (SOCKADDR*)&SenderAddr, SenderAddrSize);
-
-                if (sendResult == SOCKET_ERROR) {
-                    std::cout << "Sending back response got an error: " << WSAGetLastError();
-                }
-            }
-        }));
-    }
+    
 }
 
 void udp::UDPReq::UpBit(unsigned int bitNumber)
@@ -147,7 +174,7 @@ void udp::UDPReq::UpBit(unsigned int bitNumber)
     m_mask[byte] |= byteMask;
 }
 
-bool udp::UDPReq::GetBitState(unsigned int bitNumber)
+bool udp::UDPReq::GetBitState(unsigned int bitNumber) const
 {
     unsigned int byte = bitNumber / 8;
     unsigned int bitOffset = bitNumber % 8;
