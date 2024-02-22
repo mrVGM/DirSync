@@ -5,7 +5,6 @@
 #include "Job.h"
 
 #include <WinSock2.h>
-
 #include <iostream>
 
 namespace

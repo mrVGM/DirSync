@@ -3,6 +3,8 @@
 #include "BaseObjectMeta.h"
 #include "BaseObject.h"
 
+#include <string>
+
 namespace udp
 {
 	class FileDownloaderJSMeta : public BaseObjectMeta
@@ -21,8 +23,16 @@ namespace udp
 
 	class FileDownloaderObject : public BaseObject
 	{
+	private:
+		int m_fileId = -1;
+		size_t m_fileSize = 0;
+		size_t m_filePosition = 0;
+		std::string m_path;
+
+		void* m_clientSock = nullptr;
+
 	public:
-		FileDownloaderObject();
+		FileDownloaderObject(int fileId, size_t fileSize, const std::string& path);
 		virtual ~FileDownloaderObject();
 	};
 }

@@ -143,8 +143,14 @@
                 op: 'run_udp_server'
             });
 
+            debugger;
+
+            const fileEntry = fileList[0];
             send({
-                op: 'run_udp_client'
+                op: 'run_udp_client',
+                fileId: 0,
+                fileSize: fileEntry.fileSize,
+                path: fileEntry.path
             });
         });
 

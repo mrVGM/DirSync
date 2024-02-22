@@ -18,6 +18,7 @@
 #include "FileDownloader.h"
 
 #include <iostream>
+#include <string>
 #include <Windows.h>
 
 
@@ -243,8 +244,12 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 	{
 		udp::Init();
 		
+		int fileId = static_cast<int>(std::get<double>(map.find("fileId")->second.m_payload));
+		size_t fileSize = static_cast<size_t>(std::get<double>(map.find("fileSize")->second.m_payload));
+		std::string path = std::get<std::string>(map.find("path")->second.m_payload);
+
 		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
-			new udp::FileDownloaderObject();
+			new udp::FileDownloaderObject(fileId, fileSize, path);
 
 			JSONValue res(ValueType::Object);
 			auto& resMap = res.GetAsObj();
