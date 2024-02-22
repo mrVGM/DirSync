@@ -98,22 +98,26 @@ void udp::UDPServer()
         return;
     }
 
-
+    udp::UDPReq req;
     int bytes_received;
-    char serverBuf[1025];
-    int serverBufLen = 1024;
 
     // Keep a seperate address struct to store sender information. 
     struct sockaddr_in SenderAddr;
     int SenderAddrSize = sizeof(SenderAddr);
-
     std::cout << "Receiving datagrams on " << "127.0.0.1" << std::endl;
-    bytes_received = recvfrom(serverSocket, serverBuf, serverBufLen, 0 /* no flags*/, (SOCKADDR*)&SenderAddr, &SenderAddrSize);
-    if (bytes_received == SOCKET_ERROR) {
-        std::cout << "recvfrom failed with error" << WSAGetLastError();
-    }
-    serverBuf[bytes_received] = '\0';
 
+    while (true)
+    {
+        bytes_received = recvfrom(serverSocket, reinterpret_cast<char*>(&req), sizeof(req), 0 /* no flags*/, (SOCKADDR*)&SenderAddr, &SenderAddrSize);
+        if (bytes_received == SOCKET_ERROR) {
+            std::cout << "recvfrom failed with error" << WSAGetLastError();
+        }
+
+        if (!req.m_shouldContinue)
+        {
+            break;
+        }
+    }
 
     char sendBuf[] = { 'h', 'e', 'l', 'l', 'o', '\0' };
     int sendBufLen = (int)(sizeof(sendBuf) - 1);
@@ -134,11 +138,8 @@ void udp::UDPClient()
         return;
     }
 
-    char SendBuf[1024];
-    int BufLen = (int)(sizeof(SendBuf) - 1);
-    const char* toSend = "foobar";
-    strcpy(SendBuf, toSend);
-
+    udp::UDPReq req;
+    
     struct sockaddr_in ClientAddr;
     int clientAddrSize = (int)sizeof(ClientAddr);
     short port = 27015;
@@ -146,10 +147,9 @@ void udp::UDPClient()
     ClientAddr.sin_family = AF_INET;
     ClientAddr.sin_port = htons(port);
     ClientAddr.sin_addr.s_addr = inet_addr(local_host);
-    puts("Sending a datagram to the receiver...");
-
+    
     int clientResult = sendto(SendSocket,
-        SendBuf, BufLen, 0, (SOCKADDR*)&ClientAddr, clientAddrSize);
+        reinterpret_cast<char*>(&req), sizeof(req), 0, (SOCKADDR*)&ClientAddr, clientAddrSize);
 
     char buff[1025];
     int buffLen = 1024;

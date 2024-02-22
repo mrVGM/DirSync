@@ -15,6 +15,7 @@
 #include "FileManager.h"
 
 #include "UDP.h"
+#include "FileDownloader.h"
 
 #include <iostream>
 #include <Windows.h>
@@ -241,18 +242,16 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 	if (op == "run_udp_client")
 	{
 		udp::Init();
-		udp::UDPClient();
+		
+		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+			new udp::FileDownloaderObject();
 
-		JSONValue res(ValueType::Object);
-		auto& resMap = res.GetAsObj();
+			JSONValue res(ValueType::Object);
+			auto& resMap = res.GetAsObj();
+			resMap["id"] = JSONValue(static_cast<double>(reqId));
+			SendResponse(res);
+		}));
 
-		if (reqId)
-		{
-			bool t = true;
-		}
-
-		resMap["id"] = JSONValue(static_cast<double>(reqId));
-		SendResponse(res);
 		return true;
 	}
 

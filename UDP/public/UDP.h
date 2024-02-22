@@ -7,6 +7,7 @@ namespace udp
 {
 	struct UDPReq
 	{
+		bool m_shouldContinue = true;
 		unsigned int m_fileId;
 		unsigned int m_offset;
 		unsigned char m_mask[1024] = {};
