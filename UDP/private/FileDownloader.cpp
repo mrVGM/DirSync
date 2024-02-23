@@ -190,15 +190,20 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
                     m_dataReceived[res.m_offset - startKB] = res;
                 }
 
+                size_t received = i * 8 * 1024 * 1024;
                 missing = false;
                 for (int i = 0; i < 8 * 1024; ++i)
                 {
                     if (!m_dataReceived[i].m_valid)
                     {
                         missing = true;
-                        break;
+                    }
+                    else
+                    {
+                        received += 1024;
                     }
                 }
+                m_bytesReceived = min(received, m_fileSize);
             }
 
             size_t startByte = i * 8 * 1024 * 1024;
@@ -226,4 +231,16 @@ udp::FileDownloaderObject::~FileDownloaderObject()
 {
     delete m_clientSock;
     delete[] m_dataReceived;
+}
+
+
+int udp::FileDownloaderObject::GetFileId() const
+{
+    return m_fileId;
+}
+
+void udp::FileDownloaderObject::GetProgress(size_t& finished, size_t& all) const
+{
+    finished = m_bytesReceived;
+    all = m_fileSize;
 }

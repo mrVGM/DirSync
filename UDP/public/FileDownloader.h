@@ -32,6 +32,7 @@ namespace udp
 
 		int m_fileId = -1;
 		size_t m_fileSize = 0;
+		size_t m_bytesReceived = 0;
 		size_t m_fileOffset = 0;
 		std::string m_path;
 
@@ -44,5 +45,8 @@ namespace udp
 	public:
 		FileDownloaderObject(int fileId, size_t fileSize, const std::string& path, const std::function<void()>& downloadFinished);
 		virtual ~FileDownloaderObject();
+
+		int GetFileId() const;
+		void GetProgress(size_t& finished, size_t& all) const;
 	};
 }

@@ -260,6 +260,41 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 		return true;
 	}
 
+	if (op == "get_download_progress")
+	{
+		int fileId = static_cast<int>(std::get<double>(map.find("fileId")->second.m_payload));
+
+		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+			std::list<BaseObject*> downloaders;
+			container.GetAllObjectsOfClass(udp::FileDownloaderMeta::GetInstance(), downloaders);
+
+			size_t finished = 1;
+			size_t all = 1;
+			for (auto it = downloaders.begin(); it != downloaders.end(); ++it)
+			{
+				udp::FileDownloaderObject* cur = static_cast<udp::FileDownloaderObject*>(*it);
+				if (cur->GetFileId() == fileId)
+				{
+					cur->GetProgress(finished, all);
+					break;
+				}
+			}
+
+			JSONValue res(ValueType::Object);
+			auto& resMap = res.GetAsObj();
+			resMap["id"] = JSONValue(static_cast<double>(reqId));
+			JSONValue prog(json_parser::ValueType::List);
+			auto& l = prog.GetAsList();
+			l.push_back(JSONValue(static_cast<double>(finished)));
+			l.push_back(JSONValue(static_cast<double>(all)));
+			resMap["progress"] = prog;
+			SendResponse(res);
+		}));
+
+		return true;
+	}
+
 	JSONValue res(ValueType::Object);
 	auto& resMap = res.GetAsObj();
 	resMap["id"] = JSONValue(static_cast<double>(reqId));
