@@ -116,11 +116,15 @@ udp::UDPServerObject::UDPServerObject() :
                     {
                         continue;
                     }
-
-                    const FileEntry::KB& kb = fileEntry->GetKB(req.m_offset + i);
+                    if (req.m_offset * 1024 < fileEntry->m_curPos)
+                    {
+                        continue;
+                    }
+                    FileEntry::KB kb;
+                    fileEntry->GetKB(req.m_offset + i, kb);
 
                     udp::UDPRes res;
-                    res.m_offset = i;
+                    res.m_offset = req.m_offset + i;
                     res.m_valid = true;
                     memcpy(res.m_data, &kb, sizeof(kb));
 

@@ -80,7 +80,7 @@ void udp::FileEntry::Init(int id, const std::string& path)
 }
 
 
-const udp::FileEntry::KB& udp::FileEntry::GetKB(size_t index)
+void udp::FileEntry::GetKB(size_t index, KB& outKB)
 {
 	bool read = false;
 	if (!m_f)
@@ -90,6 +90,7 @@ const udp::FileEntry::KB& udp::FileEntry::GetKB(size_t index)
 	}
 
 	size_t startKB = index / (8 * 1024);
+	startKB *= 8 * 1024;
 	size_t curPos = 1024 * startKB;
 
 	if (m_curPos != curPos)
@@ -104,5 +105,5 @@ const udp::FileEntry::KB& udp::FileEntry::GetKB(size_t index)
 	}
 
 	fread_s(m_buff, 8 * 1024 * sizeof(KB), sizeof(KB), 8 * 1024, m_f);
-	return m_buff[index - startKB];
+	outKB = m_buff[index - startKB];
 }

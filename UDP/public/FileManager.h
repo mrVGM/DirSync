@@ -26,7 +26,7 @@ namespace udp
 		~FileEntry();
 
 		void Init(int id, const std::string& path);
-		const KB& GetKB(size_t index);
+		void GetKB(size_t index, KB& outKB);
 	};
 
 

@@ -164,11 +164,18 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
 
         for (size_t i = 0; i < numChunks; ++i)
         {
+            std::cout << i << std::endl;
+
+            for (int j = 0; j < 8 * 1024; ++j)
+            {
+                m_dataReceived[j].m_valid = false;
+            }
+
             size_t startKB = i * 8 * 1024;
             m_fileOffset = startKB;
             if (numKB - startKB < 8 * 1024)
             {
-                for (int j = numKB - startKB; j < 1024; ++j)
+                for (int j = numKB - startKB; j < 8 * 1024; ++j)
                 {
                     m_dataReceived[j].m_valid = true;
                 }
@@ -187,7 +194,10 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
                 }
                 else
                 {
-                    m_dataReceived[res.m_offset - startKB] = res;
+                    if (res.m_offset >= startKB)
+                    {
+                        m_dataReceived[res.m_offset - startKB] = res;
+                    }
                 }
 
                 size_t received = i * 8 * 1024 * 1024;
