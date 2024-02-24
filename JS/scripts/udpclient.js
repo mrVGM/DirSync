@@ -99,7 +99,7 @@ exports.fetchFile = async (id) => {
     }
     console.log(`Downloading file ${file.path} with ${file.numPackets} packets`);
 
-    document.curFileProgress = [0, file.numPackets];
+    progress1 = [0, file.numPackets];
     let chunkReceived  = false;
 
     function* chunkGroups() {
@@ -137,7 +137,7 @@ exports.fetchFile = async (id) => {
             const chunkId = intFromBytes(data.slice(4, 8));
             if (chunkGroup[0] <= chunkId && chunkId <= chunkGroup[1]) {
                 if (!chunks[chunkId]) {
-                    ++document.curFileProgress[0];
+                    ++progress1[0];
                 }
                 chunks[chunkId] = data.slice(8);
             }

@@ -58,8 +58,6 @@ async function pipe() {
 							data = data.substring(i + 1);
 
 							const obj = JSON.parse(message);
-							console.log(obj);
-
 							handlers[obj.id](obj);
 							processed = false;
 							break;

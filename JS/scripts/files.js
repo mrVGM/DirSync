@@ -198,9 +198,7 @@ function flushPrefs(prefs) {
     });
 }
 
-async function writeFile(rootDir, relativePath, chunks) {
-    const filePath = path.join(rootDir, relativePath);
-
+async function createFolders(rootDir, relativePath) {
     function* getNames() {
         let dirName = relativePath;
         let baseName = path.basename(relativePath);
@@ -247,7 +245,12 @@ async function writeFile(rootDir, relativePath, chunks) {
     }
 
     await createFolders();
+}
 
+async function writeFile(rootDir, relativePath, chunks) {
+    const filePath = path.join(rootDir, relativePath);
+    createFolders(rootDir, relativePath);
+    
     const writer = fs.createWriteStream(filePath);
     for (let i = 0; i < chunks.length; ++i) {
         await new Promise((resolve, reject) => {
@@ -259,6 +262,8 @@ async function writeFile(rootDir, relativePath, chunks) {
     writer.close();
 }
 
+
+exports.createFolders = createFolders;
 exports.getFileList = getFiles;
 exports.hashFiles = hashFiles;
 exports.getRecords = getRecords;

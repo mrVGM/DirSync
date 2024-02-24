@@ -219,6 +219,8 @@ void crypto::HashBinFile(const std::string& fileName, std::string& hash, size_t&
 		read = fread_s(buff, buffSize, sizeof(unsigned char), buffSize, f);
 		fileSize += read;
 	}
+	fclose(f);
+
 	hash = Finalize(ctx);
 	delete[] buff;
 }

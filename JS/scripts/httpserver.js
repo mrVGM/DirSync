@@ -34,7 +34,7 @@ async function checkLocalFiles() {
             toUpdate.push(i);
         }
     }
-    document.overalProgress = [0, toUpdate.length];
+    progress2[1] = toUpdate.length;
 
     const { fetchFile } = require('./udpclient');
 
@@ -42,8 +42,7 @@ async function checkLocalFiles() {
         const x = toUpdate[i];
 
         await fetchFile(x);
-        document.curFile = undefined;
-        ++document.overalProgress[0];
+        ++progress2[0];
 
         console.log(`file ${x} downloaded`);
     }
