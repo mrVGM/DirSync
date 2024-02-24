@@ -170,13 +170,17 @@
             const path = require('path');
 
             progress2[1] = fileList.length;
+            progress2[0] = 0;
 
             const { writeFile, createFolders } = require('./scripts/files');
 
             for (let i = 0; i < fileList.length; ++i) {
                 const fileEntry = fileList[i];
+
+                log(`Downloading ${fileEntry.path} (${fileEntry.fileSize / 1000} KB)...`);
                 
                 await new Promise(async (resolve, reject) => {
+                    const fileId = i;
                     let checkProgress = true;
                     document.curFile = fileEntry;
 
@@ -190,7 +194,7 @@
 
                     send({
                         op: 'run_udp_client',
-                        fileId: i,
+                        fileId: fileId,
                         fileSize: fileEntry.fileSize,
                         path: path.join(document.prefs.dstDir, fileEntry.path)
                     }).then(() => {
@@ -205,7 +209,7 @@
 
                         const prog = await send({
                             op: 'get_download_progress',
-                            fileId: 0,
+                            fileId: fileId,
                         });
 
                         progress1[0] = prog.progress[0];

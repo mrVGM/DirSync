@@ -199,7 +199,7 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
 
                 size_t received = i * FileChunk::m_chunkKBSize * sizeof(KB);
                 missing = false;
-                for (int i = 0; i < 8 * 1024; ++i)
+                for (int i = 0; i < FileChunk::m_chunkKBSize; ++i)
                 {
                     if (m_dataReceived[i].m_state.Equals(UDPResState::m_empty))
                     {
