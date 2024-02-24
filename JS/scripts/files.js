@@ -176,7 +176,7 @@ async function getRecords(dir) {
 }
 
 async function readPrefs() {
-    const prefsPath = path.join(__dirname, '../configs/prefs.json');
+    const prefsPath = path.join(__dirname, '../config/prefs.json');
 
     const pr = new Promise((resolve, reject) => {
         fs.readFile(prefsPath, (err, data) => {
@@ -191,7 +191,7 @@ async function readPrefs() {
 }
 
 function flushPrefs(prefs) {
-    const prefsPath = path.join(__dirname, '../configs/prefs.json');
+    const prefsPath = path.join(__dirname, '../config/prefs.json');
     const dataToWrite = JSON.stringify(prefs);
     fs.writeFile(prefsPath, dataToWrite, err => {
         console.log('Flushed');
