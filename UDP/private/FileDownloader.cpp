@@ -58,7 +58,7 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
     udp::Init();
 
     m_clientSock = new ClientSocket();
-    m_dataReceived = new udp::UDPRes[8 * 1024];
+    m_dataReceived = new udp::UDPRes[FileChunk::m_chunkKBSize];
 
     if (!m_fileDownloaderJS)
     {
@@ -164,8 +164,6 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
 
         for (size_t i = 0; i < numChunks; ++i)
         {
-            std::cout << i << std::endl;
-
             for (int j = 0; j < FileChunk::m_chunkKBSize; ++j)
             {
                 m_dataReceived[j].m_state = UDPResState::m_empty;
