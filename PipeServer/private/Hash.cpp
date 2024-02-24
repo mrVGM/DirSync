@@ -200,9 +200,9 @@ void crypto::HashBinFile(const std::string& fileName, std::string& hash, size_t&
 	fileSize = 0;
 
 	const size_t buffSize = 1024;
-	unsigned char* buff = new unsigned char[buffSize];
 	FILE* f = nullptr;
 	fopen_s(&f, fileName.c_str(), "rb");
+
 	if (!f)
 	{
 		return;
@@ -211,6 +211,8 @@ void crypto::HashBinFile(const std::string& fileName, std::string& hash, size_t&
 	SHA256_CTX ctx;
 	Init(ctx);
 	size_t read;
+
+	unsigned char* buff = new unsigned char[buffSize];
 	read = fread_s(buff, buffSize, sizeof(unsigned char), buffSize, f);
 	fileSize = read;
 	while (read > 0)

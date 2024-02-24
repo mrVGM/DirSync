@@ -148,7 +148,7 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
                 int clientResult = sendto(SendSocket,
                     reinterpret_cast<char*>(&req), sizeof(req), 0, (SOCKADDR*)&ClientAddr, clientAddrSize);
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 jobs::RunAsync(new PingServer(m_self, m_done));
             }
         };
