@@ -33,7 +33,7 @@ namespace udp
 		int m_fileId = -1;
 		size_t m_fileSize = 0;
 		size_t m_bytesReceived = 0;
-		size_t m_fileOffset = 0;
+		size_t m_fileKBOffset = 0;
 		std::string m_path;
 
 		udp::UDPRes* m_dataReceived = nullptr;

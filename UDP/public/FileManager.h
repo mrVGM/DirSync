@@ -3,6 +3,8 @@
 #include "BaseObjectMeta.h"
 #include "BaseObject.h"
 
+#include "UDP.h"
+
 #include <string>
 #include <map>
 
@@ -10,23 +12,16 @@ namespace udp
 {
 	struct FileEntry
 	{
-		struct KB
-		{
-			char m_data[1024];
-		};
-
 		int m_id = -1;
 		std::string m_path;
 
-		size_t m_curPos = 0;
-		KB* m_buff = nullptr;
-
+		udp::FileChunk m_fileChunk;
 		FILE* m_f = nullptr;
 		
 		~FileEntry();
 
 		void Init(int id, const std::string& path);
-		void GetKB(size_t index, KB& outKB);
+		bool GetKB(size_t index, KB& outKB);
 	};
 
 

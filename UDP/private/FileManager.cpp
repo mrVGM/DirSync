@@ -63,47 +63,35 @@ udp::FileEntry::~FileEntry()
 	{
 		fclose(m_f);
 	}
-
-	if (m_buff)
-	{
-		delete[] m_buff;
-	}
-
-	m_buff = nullptr;
 }
 
 void udp::FileEntry::Init(int id, const std::string& path)
 {
 	m_id = id;
 	m_path = path;
-	m_buff = new KB[8 * 1024];
 }
 
 
-void udp::FileEntry::GetKB(size_t index, KB& outKB)
+bool udp::FileEntry::GetKB(size_t index, KB& outKB)
 {
-	bool read = false;
 	if (!m_f)
 	{
-		read = true;
 		fopen_s(&m_f, m_path.c_str(), "rb");
+		fread_s(m_fileChunk.GetData(), udp::FileChunk::m_chunkKBSize * sizeof(KB), sizeof(KB), udp::FileChunk::m_chunkKBSize, m_f);
 	}
 
-	size_t startKB = index / (8 * 1024);
-	startKB *= 8 * 1024;
-	size_t curPos = 1024 * startKB;
-
-	if (m_curPos != curPos)
+	udp::FileChunk::KBPos KBPos = m_fileChunk.GetKBPos(index);
+	if (KBPos == udp::FileChunk::Left)
 	{
-		read = true;
+		return false;
 	}
 
-	m_curPos = curPos;
-	if (read)
+	if (KBPos == udp::FileChunk::Right)
 	{
-		fseek(m_f, m_curPos, 0);
+		m_fileChunk.m_startingByte += FileChunk::m_chunkKBSize * sizeof(KB);
+		fseek(m_f, m_fileChunk.m_startingByte, 0);
+		fread_s(m_fileChunk.GetData(), udp::FileChunk::m_chunkKBSize * sizeof(KB), sizeof(KB), udp::FileChunk::m_chunkKBSize, m_f);
 	}
 
-	fread_s(m_buff, 8 * 1024 * sizeof(KB), sizeof(KB), 8 * 1024, m_f);
-	outKB = m_buff[index - startKB];
+	return m_fileChunk.GetKB(index, outKB);
 }

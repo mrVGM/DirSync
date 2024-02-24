@@ -113,13 +113,13 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
                 }
 
                 udp::UDPReq req;
-                req.m_offset = m_self.m_fileOffset;
+                req.m_offset = m_self.m_fileKBOffset;
                 req.m_fileId = m_self.m_fileId;
 
                 bool missing = false;
-                for (int i = 0; i < 8 * 1024; ++i)
+                for (int i = 0; i < FileChunk::m_chunkKBSize; ++i)
                 {
-                    if (!m_self.m_dataReceived[i].m_valid)
+                    if (m_self.m_dataReceived[i].m_state.Equals(UDPResState::m_empty))
                     {
                         req.UpBit(i);
                         missing = true;
@@ -156,8 +156,8 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
 
         udp::UDPRes res;
 
-        size_t numKB = m_fileSize / 1024 + 1;
-        size_t numChunks = numKB / (8 * 1024) + 1;
+        size_t numKB = ceil((double)m_fileSize / sizeof(KB));
+        size_t numChunks = ceil((double)numKB / FileChunk::m_chunkKBSize);
 
         FILE* f = nullptr;
         fopen_s(&f, m_path.c_str(), "wb");
@@ -166,19 +166,16 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
         {
             std::cout << i << std::endl;
 
-            for (int j = 0; j < 8 * 1024; ++j)
+            for (int j = 0; j < FileChunk::m_chunkKBSize; ++j)
             {
-                m_dataReceived[j].m_valid = false;
+                m_dataReceived[j].m_state = UDPResState::m_empty;
             }
 
-            size_t startKB = i * 8 * 1024;
-            m_fileOffset = startKB;
-            if (numKB - startKB < 8 * 1024)
+            size_t startKB = i * FileChunk::m_chunkKBSize;
+            m_fileKBOffset = startKB;
+            for (int j = numKB - startKB; j < FileChunk::m_chunkKBSize; ++j)
             {
-                for (int j = numKB - startKB; j < 8 * 1024; ++j)
-                {
-                    m_dataReceived[j].m_valid = true;
-                }
+                m_dataReceived[j].m_state = UDPResState::m_blank;
             }
 
             bool missing = true;
@@ -200,33 +197,33 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
                     }
                 }
 
-                size_t received = i * 8 * 1024 * 1024;
+                size_t received = i * FileChunk::m_chunkKBSize * sizeof(KB);
                 missing = false;
                 for (int i = 0; i < 8 * 1024; ++i)
                 {
-                    if (!m_dataReceived[i].m_valid)
+                    if (m_dataReceived[i].m_state.Equals(UDPResState::m_empty))
                     {
                         missing = true;
                     }
                     else
                     {
-                        received += 1024;
+                        received += sizeof(KB);
                     }
                 }
                 m_bytesReceived = min(received, m_fileSize);
             }
 
-            size_t startByte = i * 8 * 1024 * 1024;
-            for (size_t j = 0; j < 8 * 1024; ++j)
+            size_t startByte = i * FileChunk::m_chunkKBSize * sizeof(KB);
+            for (size_t j = 0; j < FileChunk::m_chunkKBSize; ++j)
             {
-                size_t cur = startByte + j * 1024;
+                size_t cur = startByte + j * sizeof(KB);
                 if (cur >= m_fileSize)
                 {
                     break;
                 }
 
-                size_t endByte = min(m_fileSize, cur + 1024);
-                fwrite(m_dataReceived[j].m_data, sizeof(char), endByte - cur, f);
+                size_t endByte = min(m_fileSize, cur + sizeof(KB));
+                fwrite(&m_dataReceived[j].m_data, sizeof(char), endByte - cur, f);
             }
 
         }

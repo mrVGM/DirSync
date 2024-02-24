@@ -5,6 +5,51 @@
 
 namespace udp
 {
+	struct KB
+	{
+		char m_data[1024];
+	};
+
+	struct FileChunk
+	{
+	private:
+		KB* m_data = nullptr;
+
+	public:
+		enum KBPos
+		{
+			Inside,
+			Left,
+			Right
+		};
+
+		static size_t m_chunkKBSize;
+
+		size_t m_startingByte = 0;
+
+		~FileChunk();
+
+		bool GetKB(size_t globalKBPos, KB& outKB);
+		KBPos GetKBPos(size_t globalKBPos);
+
+		KB* GetData();
+	};
+
+	class UDPResState
+	{
+	private:
+		char m_state;
+
+	public:
+		static UDPResState m_empty;
+		static UDPResState m_full;
+		static UDPResState m_blank;
+
+		UDPResState(char state);
+
+		bool Equals(const UDPResState & other);
+	};
+
 	struct UDPReq
 	{
 		bool m_shouldContinue = true;
@@ -18,10 +63,10 @@ namespace udp
 
 	struct UDPRes
 	{
-		bool m_valid = false;
+		UDPResState m_state = UDPResState::m_empty;
 		unsigned int m_fileId;
 		unsigned int m_offset;
-		unsigned char m_data[1024] = {};
+		KB m_data;
 	};
 
 	class UDPServerJSMeta : public BaseObjectMeta

@@ -110,23 +110,21 @@ udp::UDPServerObject::UDPServerObject() :
             jobs::RunAsync(jobs::Job::CreateFromLambda([=]() {
                 FileEntry* fileEntry = m_fileManager->GetFile(req.m_fileId);
 
-                for (int i = 0; i < 8 * 1024; ++i)
+                for (int i = 0; i < FileChunk::m_chunkKBSize; ++i)
                 {
                     if (!req.GetBitState(i))
                     {
                         continue;
                     }
-                    if (req.m_offset * 1024 < fileEntry->m_curPos)
+                    udp::UDPRes res;
+                    res.m_offset = req.m_offset + i;
+
+                    bool gottenKB = fileEntry->GetKB(req.m_offset + i, res.m_data);
+                    if (!gottenKB)
                     {
                         continue;
                     }
-                    FileEntry::KB kb;
-                    fileEntry->GetKB(req.m_offset + i, kb);
-
-                    udp::UDPRes res;
-                    res.m_offset = req.m_offset + i;
-                    res.m_valid = true;
-                    memcpy(res.m_data, &kb, sizeof(kb));
+                    res.m_state = UDPResState::m_full;
 
                     int sendResult = sendto(serverSocket,
                         reinterpret_cast<char*>(&res), sizeof(res), 0, (SOCKADDR*)&SenderAddr, SenderAddrSize);
@@ -188,3 +186,75 @@ bool udp::UDPReq::GetBitState(unsigned int bitNumber) const
 
     return (m_mask[byte] & byteMask);
 }
+
+size_t udp::FileChunk::m_chunkKBSize = 8 * 1024;
+
+
+udp::FileChunk::~FileChunk()
+{
+    if (m_data)
+    {
+        delete[] m_data;
+    }
+
+    m_data = nullptr;
+}
+
+bool udp::FileChunk::GetKB(size_t globalKBPos, KB& outKB)
+{
+    size_t startingKB = m_startingByte / sizeof(KB);
+
+    if (globalKBPos < startingKB)
+    {
+        return false;
+    }
+
+    if (globalKBPos >= startingKB + m_chunkKBSize)
+    {
+        return false;
+    }
+
+    outKB = GetData()[globalKBPos - startingKB];
+}
+
+udp::FileChunk::KBPos udp::FileChunk::GetKBPos(size_t globalKBPos)
+{
+    size_t startingKBPos = m_startingByte / sizeof(KB);
+    if (globalKBPos < startingKBPos)
+    {
+        return FileChunk::KBPos::Left;
+    }
+
+    if (globalKBPos >= startingKBPos + m_chunkKBSize)
+    {
+        return FileChunk::KBPos::Right;
+    }
+
+    return udp::FileChunk::Inside;
+}
+
+udp::KB* udp::FileChunk::GetData()
+{
+    if (!m_data)
+    {
+        m_data = new KB[m_chunkKBSize];
+    }
+
+    return m_data;
+}
+
+udp::UDPResState udp::UDPResState::m_empty = udp::UDPResState('e');
+udp::UDPResState udp::UDPResState::m_full = udp::UDPResState('f');
+udp::UDPResState udp::UDPResState::m_blank = udp::UDPResState('b');
+
+udp::UDPResState::UDPResState(char state) :
+    m_state(state)
+{
+}
+
+bool udp::UDPResState::Equals(const UDPResState& other)
+{
+    return m_state == other.m_state;
+}
+
+
