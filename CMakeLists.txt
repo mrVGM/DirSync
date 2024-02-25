@@ -5,8 +5,6 @@ cmake_minimum_required (VERSION 3.8)
 
 project ("DirSync")
 
-add_definitions(-DUNICODE)
-
 IF(CMAKE_BUILD_TYPE MATCHES Debug)
     add_definitions(-DDEBUG=1)
 ENDIF()

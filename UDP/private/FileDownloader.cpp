@@ -8,9 +8,9 @@
 #include "UDP.h"
 
 #include <WinSock2.h>
-#include <iostream>
 #include <chrono>
 #include <thread>
+#include <iostream>
 
 namespace
 {
@@ -159,8 +159,15 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
         size_t numKB = ceil((double)m_fileSize / sizeof(KB));
         size_t numChunks = ceil((double)numKB / FileChunk::m_chunkKBSize);
 
-        FILE* f = nullptr;
-        fopen_s(&f, m_path.c_str(), "wb");
+        HANDLE fHandle = CreateFile(
+            m_path.c_str(),
+            GENERIC_WRITE,
+            NULL,
+            NULL,
+            OPEN_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL,
+            NULL
+        );
 
         for (size_t i = 0; i < numChunks; ++i)
         {
@@ -221,11 +228,18 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
                 }
 
                 size_t endByte = min(m_fileSize, cur + sizeof(KB));
-                fwrite(&m_dataReceived[j].m_data, sizeof(char), endByte - cur, f);
+                DWORD written;
+                WriteFile(
+                    fHandle,
+                    &m_dataReceived[j].m_data,
+                    endByte - cur,
+                    &written,
+                    NULL
+                );
             }
 
         }
-        fclose(f);
+        CloseHandle(fHandle);
 
         m_done = true;
         jobs::RunSync(jobs::Job::CreateFromLambda(itemFinished));

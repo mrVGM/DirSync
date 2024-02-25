@@ -3,6 +3,8 @@
 #include <string>
 #include <stdio.h>
 
+#include <Windows.h>
+
 namespace
 {
 	typedef crypto::SHA256_CTX SHA256_CTX;
@@ -199,29 +201,52 @@ void crypto::HashBinFile(const std::string& fileName, std::string& hash, size_t&
 	hash = "";
 	fileSize = 0;
 
-	const size_t buffSize = 1024;
-	FILE* f = nullptr;
-	fopen_s(&f, fileName.c_str(), "rb");
+	const size_t buffSize = 8 * 1024 * 1024;
 
-	if (!f)
+	HANDLE fHandle = CreateFile(
+		fileName.c_str(),
+		GENERIC_READ,
+		NULL,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL
+	);
+
+	
+	if (!fHandle)
 	{
 		return;
 	}
 
 	SHA256_CTX ctx;
 	Init(ctx);
-	size_t read;
 
 	unsigned char* buff = new unsigned char[buffSize];
-	read = fread_s(buff, buffSize, sizeof(unsigned char), buffSize, f);
+
+	DWORD read;
+	ReadFile(
+		fHandle,
+		buff,
+		buffSize,
+		&read,
+		NULL);
+
 	fileSize = read;
 	while (read > 0)
 	{
 		Update(ctx, buff, read);
-		read = fread_s(buff, buffSize, sizeof(unsigned char), buffSize, f);
+
+		ReadFile(
+			fHandle,
+			buff,
+			buffSize,
+			&read,
+			NULL);
 		fileSize += read;
 	}
-	fclose(f);
+
+	CloseHandle(fHandle);
 
 	hash = Finalize(ctx);
 	delete[] buff;

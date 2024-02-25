@@ -6,9 +6,8 @@ const path = require('path');
 async function handleRequest(req, res) {
     console.log(req.url);
     if (req.url === '/records') {
-        const { getRecords } = require('./files');
-        const recs = await getRecords(document.prefs.srcDir);
-        res.write(JSON.stringify(recs));
+        const fileList = await myFileList;
+        res.write(JSON.stringify(fileList));
         res.end();
         return;
     }
@@ -50,10 +49,13 @@ async function checkLocalFiles() {
     console.log('Done');
 }
 
-exports.startServer = () => {
-    http.createServer(handleRequest).listen(8080, () => {
-        console.log('Server listening at port 8080');
-    }); //the server object listens on port 8080
+exports.startServer = async () => {
+    return new Promise((resolve, reject) => {
+        http.createServer(handleRequest).listen(8080, () => {
+            console.log('Server listening at port 8080');
+            resolve();
+        }); //the server object listens on port 8080
+    });
 };
 
 async function getRecs(){

@@ -22,9 +22,8 @@
                 <input id="dst_dir" type="text" />
             </div>
             <div style="display: flex;">
-                <div id="start_server" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Start Server</div>
-                <div id="update_local_files" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Update</div>
-                <div id="pipe_server" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Pipe Server</div>
+                <div id="download_files" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Download Files</div>
+                <div id="run_server" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Run Server</div>
                 <div id="quit" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Quit</div>
             </div>
 
@@ -60,7 +59,7 @@
             infoPanel.appendChild(div);
         }
 
-        const { startServer, getRecs, checkLocalFiles } = require('./scripts/httpserver');
+        const { startServer, getRecs } = require('./scripts/httpserver');
         const { getRecords, readPrefs, flushPrefs, getFileList } = require('./scripts/files');
 
         document.prefs = {};
@@ -92,169 +91,242 @@
         }
         initPrefs();
 
-        document.getElementById("start_server").addEventListener('click', async event => {
-            startServer();
-            await getRecords(document.prefs.srcDir);
-            require('./scripts/udpserver');
-        });
-
-        document.getElementById("update_local_files").addEventListener('click', async event => {
-            await checkLocalFiles();
-        });
-
-        let send = undefined;
-
-        document.getElementById("pipe_server").addEventListener('click', async event => {
+        var myFileList = undefined;
+        async function initButtons() {
             const { getSendFunc } = await require('./scripts/pipeserver');
 
+            await startServer();
+            log('HTTP server running.')
+
             log('Waiting for backend...');
-            send = await getSendFunc();
+            const send = await getSendFunc();
 
-            let fileList = await getFileList(document.prefs.srcDir);
-            progress2[1] = fileList.length;
+            log('Backend running!');
 
-            log('Calculating file hashes...');
-            {
-                let reqs = fileList.map((x, index) => {
-                    const path = require('path');
-                    const req = {
-                        op: 'hash',
-                        file: path.join(document.prefs.srcDir, x.path)
-                    };
-            
-                    const pr = send(req);
-                    pr.then(() => {
-                        if (!pr.fulfilled) {
-                            ++progress2[0];
-                        }
-                        pr.fulfilled = true;
-                    });
-                    return pr;
-                });
+            document.getElementById("download_files").addEventListener('click', async event => {
+                const fileList = await getRecs();
+                log('File list acquired.')
 
-                for (let i = 0; i < reqs.length; ++i) {
-                    reqs[i] = await reqs[i];
-                    fileList[reqs[i].id].hash = reqs[i].hash;
-                    fileList[reqs[i].id].fileSize = reqs[i].fileSize;
-                }
-            }
+                const path = require('path');
 
-            {
-                let reqs = fileList.map((x, index) => {
-                    const path = require('path');
-                    const req = {
-                        op: 'set_file_id',
-                        file: path.join(document.prefs.srcDir, x.path),
-                        file_id: index
-                    };
+                progress2[1] = fileList.length;
+                progress2[0] = 0;
 
-                    const pr = send(req);
-                    pr.then(() => {
-                        if (!pr.fulfilled) {
-                            ++progress2[0];
-                        }
-                        pr.fulfilled = true;
-                    });
-                    return pr;
-                });
+                const { writeFile, createFolders } = require('./scripts/files');
 
-                for (let i = 0; i < reqs.length; ++i) {
-                    await reqs[i];
-                }
-            }
+                for (let i = 0; i < fileList.length; ++i) {
+                    const fileEntry = fileList[i];
 
-            send({
-                op: 'run_udp_server'
-            });
+                    log(`Downloading ${fileEntry.path} (${fileEntry.fileSize / 1000} KB)...`);
 
-            const path = require('path');
+                    await new Promise(async (resolve, reject) => {
+                        const fileId = i;
+                        let checkProgress = true;
+                        document.curFile = fileEntry;
 
-            progress2[1] = fileList.length;
-            progress2[0] = 0;
-
-            const { writeFile, createFolders } = require('./scripts/files');
-
-            for (let i = 0; i < fileList.length; ++i) {
-                const fileEntry = fileList[i];
-
-                log(`Downloading ${fileEntry.path} (${fileEntry.fileSize / 1000} KB)...`);
-                
-                await new Promise(async (resolve, reject) => {
-                    const fileId = i;
-                    let checkProgress = true;
-                    document.curFile = fileEntry;
-
-                    if (fileEntry.fileSize === 0) {
-                        await writeFile(document.prefs.dstDir, fileEntry.path, []);
-                        resolve();
-                        return;
-                    }
-
-                    await createFolders(document.prefs.dstDir, fileEntry.path);
-
-                    send({
-                        op: 'run_udp_client',
-                        fileId: fileId,
-                        fileSize: fileEntry.fileSize,
-                        path: path.join(document.prefs.dstDir, fileEntry.path)
-                    }).then(() => {
-                        checkProgress = false;
-                        resolve();
-                    });
-
-                    async function reqProgress() {
-                        if (!checkProgress) {
+                        if (fileEntry.fileSize === 0) {
+                            await writeFile(document.prefs.dstDir, fileEntry.path, []);
+                            resolve();
                             return;
                         }
 
-                        const prog = await send({
-                            op: 'get_download_progress',
+                        await createFolders(document.prefs.dstDir, fileEntry.path);
+
+                        send({
+                            op: 'run_udp_client',
                             fileId: fileId,
+                            fileSize: fileEntry.fileSize,
+                            path: path.join(document.prefs.dstDir, fileEntry.path)
+                        }).then(() => {
+                            checkProgress = false;
+                            resolve();
                         });
 
-                        progress1[0] = prog.progress[0];
-                        progress1[1] = prog.progress[1];
+                        async function reqProgress() {
+                            if (!checkProgress) {
+                                return;
+                            }
 
-                        setTimeout(reqProgress, 10);
+                            const prog = await send({
+                                op: 'get_download_progress',
+                                fileId: fileId,
+                            });
+
+                            progress1[0] = prog.progress[0];
+                            progress1[1] = prog.progress[1];
+
+                            setTimeout(reqProgress, 10);
+                        }
+
+                        reqProgress();
+                    });
+
+                    ++progress2[0];
+                }
+
+                log('Download Complete!');
+            });
+
+
+            document.getElementById("run_server").addEventListener('click', async event => {
+                myFileList = new Promise(async (resolve, reject) => {
+
+                    let fileList = await getFileList(document.prefs.srcDir);
+                    progress2[1] = fileList.length;
+
+                    log('Calculating file hashes...');
+                    {
+                        let reqs = fileList.map((x, index) => {
+                            const path = require('path');
+                            const req = {
+                                op: 'hash',
+                                file: path.join(document.prefs.srcDir, x.path)
+                            };
+            
+                            const pr = send(req);
+                            pr.then(() => {
+                                if (!pr.fulfilled) {
+                                    ++progress2[0];
+                                }
+                                pr.fulfilled = true;
+                            });
+                            return pr;
+                        });
+
+                        for (let i = 0; i < reqs.length; ++i) {
+                            reqs[i] = await reqs[i];
+                            fileList[reqs[i].id].hash = reqs[i].hash;
+                            fileList[reqs[i].id].fileSize = reqs[i].fileSize;
+                        }
                     }
 
-                    reqProgress();
+                    {
+                        let reqs = fileList.map((x, index) => {
+                            const path = require('path');
+                            const req = {
+                                op: 'set_file_id',
+                                file: path.join(document.prefs.srcDir, x.path),
+                                file_id: index
+                            };
+
+                            const pr = send(req);
+                            pr.then(() => {
+                                if (!pr.fulfilled) {
+                                    ++progress2[0];
+                                }
+                                pr.fulfilled = true;
+                            });
+                            return pr;
+                        });
+
+                        for (let i = 0; i < reqs.length; ++i) {
+                            await reqs[i];
+                        }
+                    }
+
+                    resolve(fileList);
                 });
 
-                ++progress2[0];
-            }
-        });
+                await myFileList;
 
-        document.getElementById("quit").addEventListener('click', async event => {
-            send({
-                op: 'shutdown'
+                await send({
+                    op: 'run_udp_server'
+                });
+                log('UDP server running.')
+
+                return;
+
+                const path = require('path');
+
+                progress2[1] = fileList.length;
+                progress2[0] = 0;
+
+                const { writeFile, createFolders } = require('./scripts/files');
+
+                for (let i = 0; i < fileList.length; ++i) {
+                    const fileEntry = fileList[i];
+
+                    log(`Downloading ${fileEntry.path} (${fileEntry.fileSize / 1000} KB)...`);
+                
+                    await new Promise(async (resolve, reject) => {
+                        const fileId = i;
+                        let checkProgress = true;
+                        document.curFile = fileEntry;
+
+                        if (fileEntry.fileSize === 0) {
+                            await writeFile(document.prefs.dstDir, fileEntry.path, []);
+                            resolve();
+                            return;
+                        }
+
+                        await createFolders(document.prefs.dstDir, fileEntry.path);
+
+                        send({
+                            op: 'run_udp_client',
+                            fileId: fileId,
+                            fileSize: fileEntry.fileSize,
+                            path: path.join(document.prefs.dstDir, fileEntry.path)
+                        }).then(() => {
+                            checkProgress = false;
+                            resolve();
+                        });
+
+                        async function reqProgress() {
+                            if (!checkProgress) {
+                                return;
+                            }
+
+                            const prog = await send({
+                                op: 'get_download_progress',
+                                fileId: fileId,
+                            });
+
+                            progress1[0] = prog.progress[0];
+                            progress1[1] = prog.progress[1];
+
+                            setTimeout(reqProgress, 10);
+                        }
+
+                        reqProgress();
+                    });
+
+                    ++progress2[0];
+                }
             });
-        });
 
-        function updateProgressBar(progressValue, bar, label){
-            let progress = 0; 
-            if (progressValue[1] !== 0) {
-                progress = progressValue[0] / progressValue[1];
+            document.getElementById("quit").addEventListener('click', async event => {
+                send({
+                    op: 'shutdown'
+                });
+            });
+
+            function updateProgressBar(progressValue, bar, label){
+                let progress = 0; 
+                if (progressValue[1] !== 0) {
+                    progress = progressValue[0] / progressValue[1];
+                }
+
+                bar.style.width = `${100 * progress}%`;
+                label.innerHTML = `[${progressValue[0]}/${progressValue[1]}]`;
+
+                setTimeout(() => {
+                    updateProgressBar(progressValue, bar, label);
+                }, 10);
+            };
+
+            {
+                const bar1 = document.getElementById('cur_file_progress_bar');
+                const bar2 = document.getElementById('overal_progress_bar');
+
+                const label1 = document.getElementById('progress_1_label');
+                const label2 = document.getElementById('progress_2_label');
+
+                updateProgressBar(progress1, bar1, label1);
+                updateProgressBar(progress2, bar2, label2);
             }
-
-            bar.style.width = `${100 * progress}%`;
-            label.innerHTML = `[${progressValue[0]}/${progressValue[1]}]`;
-
-            setTimeout(() => {
-                updateProgressBar(progressValue, bar, label);
-            }, 10);
-        };
-
-        {
-            const bar1 = document.getElementById('cur_file_progress_bar');
-            const bar2 = document.getElementById('overal_progress_bar');
-
-            const label1 = document.getElementById('progress_1_label');
-            const label2 = document.getElementById('progress_2_label');
-
-            updateProgressBar(progress1, bar1, label1);
-            updateProgressBar(progress2, bar2, label2);
         }
+
+        initButtons();
 
     </script>
 </body>
