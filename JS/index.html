@@ -101,10 +101,14 @@
 
         var myFileList = undefined;
         async function initButtons() {
+            const path = require('path');
             const { getSendFunc } = await require('./scripts/pipeserver');
 
             await startServer();
             log('HTTP server running.')
+
+            const { exec } = require('child_process');
+            exec(path.join(__dirname, '..\\out\\build\\x64-debug\\Main\\Main.exe'));
 
             log('Waiting for backend...');
             const send = await getSendFunc();
@@ -115,7 +119,6 @@
                 const fileList = await getRecs();
                 log('File list acquired.')
 
-                const path = require('path');
 
                 progress2[1] = fileList.length;
                 progress2[0] = 0;
@@ -143,6 +146,7 @@
                         send({
                             op: 'run_udp_client',
                             fileId: fileId,
+                            ip_addr: document.prefs.serverIP,
                             fileSize: fileEntry.fileSize,
                             path: path.join(document.prefs.dstDir, fileEntry.path)
                         }).then(() => {

@@ -48,7 +48,7 @@ const udp::FileDownloaderMeta& udp::FileDownloaderMeta::GetInstance()
 }
 
 
-udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, const std::string& path, const std::function<void()>& downloadFinished) :
+udp::FileDownloaderObject::FileDownloaderObject(const std::string& ipAddr, int fileId, size_t fileSize, const std::string& path, const std::function<void()>& downloadFinished) :
     BaseObject(FileDownloaderMeta::GetInstance()),
     m_fileId(fileId),
     m_fileSize(fileSize),
@@ -95,10 +95,12 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
         class PingServer : public jobs::Job
         {
         private:
+            std::string m_serverIP;
             FileDownloaderObject& m_self;
             jobs::Job* m_done = nullptr;
         public:
-            PingServer(FileDownloaderObject& self, jobs::Job* done) :
+            PingServer(const std::string& serverIP, FileDownloaderObject& self, jobs::Job* done) :
+                m_serverIP(serverIP),
                 m_self(self),
                 m_done(done)
             {
@@ -128,7 +130,7 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
 
                 if (!missing)
                 {
-                    jobs::RunAsync(new PingServer(m_self, m_done));
+                    jobs::RunAsync(new PingServer(m_serverIP, m_self, m_done));
                     return;
                 }
 
@@ -140,7 +142,7 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
 
                 int clientAddrSize = (int)sizeof(ClientAddr);
                 short port = 27015;
-                const char* local_host = "127.0.0.1";
+                const char* local_host = m_serverIP.c_str();
                 ClientAddr.sin_family = AF_INET;
                 ClientAddr.sin_port = htons(port);
                 ClientAddr.sin_addr.s_addr = inet_addr(local_host);
@@ -149,10 +151,10 @@ udp::FileDownloaderObject::FileDownloaderObject(int fileId, size_t fileSize, con
                     reinterpret_cast<char*>(&req), sizeof(req), 0, (SOCKADDR*)&ClientAddr, clientAddrSize);
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                jobs::RunAsync(new PingServer(m_self, m_done));
+                jobs::RunAsync(new PingServer(m_serverIP, m_self, m_done));
             }
         };
-        jobs::RunAsync(new PingServer(*this, jobs::Job::CreateFromLambda(itemFinished)));
+        jobs::RunAsync(new PingServer(ipAddr, *this, jobs::Job::CreateFromLambda(itemFinished)));
 
         udp::UDPRes res;
 

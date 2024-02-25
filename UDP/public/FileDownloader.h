@@ -43,7 +43,7 @@ namespace udp
 		std::function<void()> m_downloadFinished;
 
 	public:
-		FileDownloaderObject(int fileId, size_t fileSize, const std::string& path, const std::function<void()>& downloadFinished);
+		FileDownloaderObject(const std::string& ipAddr, int fileId, size_t fileSize, const std::string& path, const std::function<void()>& downloadFinished);
 		virtual ~FileDownloaderObject();
 
 		int GetFileId() const;

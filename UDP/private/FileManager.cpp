@@ -7,6 +7,7 @@
 
 #include "BaseObjectContainer.h"
 
+#include <Windows.h>
 
 namespace
 {
@@ -59,9 +60,9 @@ udp::FileEntry* udp::FileManagerObject::GetFile(int id)
 
 udp::FileEntry::~FileEntry()
 {
-	if (m_f)
+	if (m_fHandle)
 	{
-		fclose(m_f);
+		CloseHandle(m_fHandle);
 	}
 }
 
@@ -74,10 +75,26 @@ void udp::FileEntry::Init(int id, const std::string& path)
 
 bool udp::FileEntry::GetKB(size_t index, KB& outKB)
 {
-	if (!m_f)
+	if (!m_fHandle)
 	{
-		fopen_s(&m_f, m_path.c_str(), "rb");
-		fread_s(m_fileChunk.GetData(), udp::FileChunk::m_chunkKBSize * sizeof(KB), sizeof(KB), udp::FileChunk::m_chunkKBSize, m_f);
+		m_fHandle = CreateFile(
+			m_path.c_str(),
+			GENERIC_READ,
+			NULL,
+			NULL,
+			OPEN_EXISTING,
+			FILE_ATTRIBUTE_NORMAL,
+			NULL
+		);
+
+		DWORD read;
+		ReadFile(
+			m_fHandle,
+			m_fileChunk.GetData(),
+			udp::FileChunk::m_chunkKBSize * sizeof(KB),
+			&read,
+			NULL
+		);
 	}
 
 	udp::FileChunk::KBPos KBPos = m_fileChunk.GetKBPos(index);
@@ -89,8 +106,16 @@ bool udp::FileEntry::GetKB(size_t index, KB& outKB)
 	if (KBPos == udp::FileChunk::Right)
 	{
 		m_fileChunk.m_startingByte += FileChunk::m_chunkKBSize * sizeof(KB);
-		fseek(m_f, m_fileChunk.m_startingByte, 0);
-		fread_s(m_fileChunk.GetData(), udp::FileChunk::m_chunkKBSize * sizeof(KB), sizeof(KB), udp::FileChunk::m_chunkKBSize, m_f);
+
+		SetFilePointer(m_fHandle, m_fileChunk.m_startingByte, NULL, FILE_BEGIN);
+		DWORD read;
+		ReadFile(
+			m_fHandle,
+			m_fileChunk.GetData(),
+			udp::FileChunk::m_chunkKBSize * sizeof(KB),
+			&read,
+			NULL
+		);
 	}
 
 	return m_fileChunk.GetKB(index, outKB);

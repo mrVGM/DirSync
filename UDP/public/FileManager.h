@@ -16,7 +16,7 @@ namespace udp
 		std::string m_path;
 
 		udp::FileChunk m_fileChunk;
-		FILE* m_f = nullptr;
+		void* m_fHandle = nullptr;
 		
 		~FileEntry();
 
