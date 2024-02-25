@@ -229,7 +229,9 @@
                     resolve(fileList);
                 });
 
-                await myFileList;
+                const fileList = await myFileList;
+
+                console.log(fileList);
 
                 await send({
                     op: 'run_udp_server'
