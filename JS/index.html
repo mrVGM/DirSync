@@ -27,17 +27,25 @@
                 <div id="quit" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Quit</div>
             </div>
 
-            <div style="position: relative; width: 65%; height: 20px; background-color: azure; padding: 3px;">
-                <div id="cur_file_progress_bar" style="position: absolute; width: 20%; height: 100%; background-color: aquamarine;"></div>
-                <div style="display: flex; flex-direction: column; position: absolute; width: 100%; height: 100%; align-items: center;">
-                    <div id="progress_1_label" style="position: absolute;"></div>
+            <div style="display: flex; width: 65%; height: 30px; background-color: azure;">
+                <div style="position: relative; flex: 1; margin: 3px;">
+                    <div id="cur_file_progress_bar" style="position: absolute; width: 20%; height: 100%; background-color: aquamarine;"></div>
+                    <div style="display: flex; flex-direction: column; position: absolute; width: 100%; height: 100%; align-items: center;">
+                        <div style="flex: 1;"></div>
+                        <div id="progress_1_label"></div>
+                        <div style="flex: 1;"></div>
+                    </div>
                 </div>
             </div>
 
-            <div style="position: relative; width: 65%; height: 20px; background-color: azure; padding: 3px;">
-                <div id="overal_progress_bar" style="position: absolute; width: 20%; height: 100%; background-color: aquamarine;"></div>
-                <div style="display: flex; flex-direction: column; position: absolute; width: 100%; height: 100%; align-items: center;">
-                    <div id="progress_2_label" style="position: absolute;"></div>
+            <div style="display: flex; width: 65%; height: 30px; background-color: azure;">
+                <div style="position: relative; flex: 1; margin: 3px;">
+                    <div id="overal_progress_bar" style="position: absolute; width: 20%; height: 100%; background-color: aquamarine;"></div>
+                    <div style="display: flex; flex-direction: column; position: absolute; width: 100%; height: 100%; align-items: center;">
+                        <div style="flex: 1;"></div>
+                        <div id="progress_2_label"></div>
+                        <div style="flex: 1;"></div>
+                    </div>
                 </div>
             </div>
 
@@ -210,12 +218,6 @@
                             };
 
                             const pr = send(req);
-                            pr.then(() => {
-                                if (!pr.fulfilled) {
-                                    ++progress2[0];
-                                }
-                                pr.fulfilled = true;
-                            });
                             return pr;
                         });
 
