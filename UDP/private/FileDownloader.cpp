@@ -201,7 +201,7 @@ udp::FileDownloaderObject::FileDownloaderObject(const std::string& ipAddr, int f
                 }
                 else
                 {
-                    if (res.m_offset >= startKB)
+                    if (res.m_fileId == m_fileId && res.m_offset >= startKB)
                     {
                         m_dataReceived[res.m_offset - startKB] = res;
                     }

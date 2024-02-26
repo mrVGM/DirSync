@@ -7,20 +7,28 @@
 
 #include <string>
 #include <map>
+#include <mutex>
 
 namespace udp
 {
-	struct FileEntry
+	class FileEntry
 	{
+	private:
+		std::mutex m_getDataMutex;
+
+		void Init(int id, const std::string& path);
+		bool GetKBInternal(size_t index, KB& outKB);
+
+	public:
 		int m_id = -1;
 		std::string m_path;
 
 		udp::FileChunk m_fileChunk;
 		void* m_fHandle = nullptr;
 		
+		FileEntry(int id, const std::string& path);
 		~FileEntry();
 
-		void Init(int id, const std::string& path);
 		bool GetKB(size_t index, KB& outKB);
 	};
 
@@ -35,7 +43,7 @@ namespace udp
 	class FileManagerObject : public BaseObject
 	{
 	private:
-		std::map<int, FileEntry> m_filesMap;
+		std::map<int, FileEntry*> m_filesMap;
 
 	public:
 		FileManagerObject();

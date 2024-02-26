@@ -31,6 +31,10 @@ udp::FileManagerObject::FileManagerObject() :
 
 udp::FileManagerObject::~FileManagerObject()
 {
+	for (auto it = m_filesMap.begin(); it != m_filesMap.end(); ++it)
+	{
+		delete it->second;
+	}
 }
 
 udp::FileEntry& udp::FileManagerObject::RegisterFile(int id, const std::string& path)
@@ -38,13 +42,12 @@ udp::FileEntry& udp::FileManagerObject::RegisterFile(int id, const std::string& 
 	auto it = m_filesMap.find(id);
 	if (it == m_filesMap.end())
 	{
-		m_filesMap[id] = FileEntry();
-		FileEntry& f = m_filesMap[id];
-		f.Init(id, path);
-		return f;
+		FileEntry* f = new FileEntry(id, path);
+		m_filesMap[id] = f;
+		return *f;
 	}
 
-	return it->second;
+	return *it->second;
 }
 
 udp::FileEntry* udp::FileManagerObject::GetFile(int id)
@@ -55,7 +58,12 @@ udp::FileEntry* udp::FileManagerObject::GetFile(int id)
 		return nullptr;
 	}
 	
-	return &it->second;
+	return it->second;
+}
+
+udp::FileEntry::FileEntry(int id, const std::string& path)
+{
+	Init(id, path);
 }
 
 udp::FileEntry::~FileEntry()
@@ -74,6 +82,15 @@ void udp::FileEntry::Init(int id, const std::string& path)
 
 
 bool udp::FileEntry::GetKB(size_t index, KB& outKB)
+{
+	m_getDataMutex.lock();
+	bool res = GetKBInternal(index, outKB);
+	m_getDataMutex.unlock();
+
+	return res;
+}
+
+bool udp::FileEntry::GetKBInternal(size_t index, KB& outKB)
 {
 	if (!m_fHandle)
 	{

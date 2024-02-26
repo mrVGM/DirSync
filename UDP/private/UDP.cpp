@@ -102,11 +102,6 @@ udp::UDPServerObject::UDPServerObject() :
                 continue;
             }
 
-            if (!req.m_shouldContinue)
-            {
-                break;
-            }
-
             jobs::RunAsync(jobs::Job::CreateFromLambda([=]() {
                 FileEntry* fileEntry = m_fileManager->GetFile(req.m_fileId);
 
@@ -125,6 +120,7 @@ udp::UDPServerObject::UDPServerObject() :
                         continue;
                     }
                     res.m_state = UDPResState::m_full;
+                    res.m_fileId = fileEntry->m_id;
 
                     int sendResult = sendto(serverSocket,
                         reinterpret_cast<char*>(&res), sizeof(res), 0, (SOCKADDR*)&SenderAddr, SenderAddrSize);
@@ -215,6 +211,7 @@ bool udp::FileChunk::GetKB(size_t globalKBPos, KB& outKB)
     }
 
     outKB = GetData()[globalKBPos - startingKB];
+    return true;
 }
 
 udp::FileChunk::KBPos udp::FileChunk::GetKBPos(size_t globalKBPos)
