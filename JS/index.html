@@ -56,6 +56,9 @@
     </div>
 
     <script>
+        var fileHashesSrc;
+        var fileHashesDst;
+
         const progress1 = [0, 0];
         const progress2 = [0, 0];
 
@@ -175,8 +178,46 @@
 
                     ++progress2[0];
                 }
-
                 log('Download Complete!');
+
+                let myFiles = [];
+                {
+                    progress2[0] = 0;
+                    progress2[1] = fileList.length;
+
+                    const path = require('path');
+                    myFiles = fileList.map((x, index) => {
+                        return {
+                            path: path.join(document.prefs.dstDir, x.path)
+                        };
+                    });
+                    let reqs = myFiles.map((x, index) => {
+                        const req = {
+                            op: 'hash',
+                            file: x.path
+                        };
+
+                        const pr = send(req);
+                        pr.then(() => {
+                            if (!pr.fulfilled) {
+                                ++progress2[0];
+                            }
+                            pr.fulfilled = true;
+                        });
+                        return pr;
+                    });
+
+                    for (let i = 0; i < reqs.length; ++i) {
+                        reqs[i] = await reqs[i];
+                        myFiles[i].fileSize = reqs[i].fileSize;
+                        myFiles[i].hash = reqs[i].hash;
+                    }
+
+                    console.log(myFiles);
+                }
+
+                fileHashesSrc = fileList;
+                fileHashesDst = myFiles;
             });
 
 
@@ -243,63 +284,6 @@
                 log('UDP server running.')
 
                 return;
-
-                const path = require('path');
-
-                progress2[1] = fileList.length;
-                progress2[0] = 0;
-
-                const { writeFile, createFolders } = require('./scripts/files');
-
-                for (let i = 0; i < fileList.length; ++i) {
-                    const fileEntry = fileList[i];
-
-                    log(`Downloading ${fileEntry.path} (${fileEntry.fileSize / 1000} KB)...`);
-                
-                    await new Promise(async (resolve, reject) => {
-                        const fileId = i;
-                        let checkProgress = true;
-                        document.curFile = fileEntry;
-
-                        if (fileEntry.fileSize === 0) {
-                            await writeFile(document.prefs.dstDir, fileEntry.path, []);
-                            resolve();
-                            return;
-                        }
-
-                        await createFolders(document.prefs.dstDir, fileEntry.path);
-
-                        send({
-                            op: 'run_udp_client',
-                            fileId: fileId,
-                            fileSize: fileEntry.fileSize,
-                            path: path.join(document.prefs.dstDir, fileEntry.path)
-                        }).then(() => {
-                            checkProgress = false;
-                            resolve();
-                        });
-
-                        async function reqProgress() {
-                            if (!checkProgress) {
-                                return;
-                            }
-
-                            const prog = await send({
-                                op: 'get_download_progress',
-                                fileId: fileId,
-                            });
-
-                            progress1[0] = prog.progress[0];
-                            progress1[1] = prog.progress[1];
-
-                            setTimeout(reqProgress, 10);
-                        }
-
-                        reqProgress();
-                    });
-
-                    ++progress2[0];
-                }
             });
 
             document.getElementById("quit").addEventListener('click', async event => {
