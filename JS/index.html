@@ -108,7 +108,7 @@
             log('HTTP server running.')
 
             const { exec } = require('child_process');
-            exec(path.join(__dirname, '..\\out\\build\\x64-debug\\Main\\Main.exe'));
+            //exec(path.join(__dirname, '..\\out\\build\\x64-debug\\Main\\Main.exe'));
 
             log('Waiting for backend...');
             const send = await getSendFunc();
