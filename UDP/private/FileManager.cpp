@@ -120,11 +120,8 @@ bool udp::FileEntry::GetKBInternal(size_t index, KB& outKB)
 		return false;
 	}
 
-	if (KBPos == udp::FileChunk::Right)
+	while (KBPos == udp::FileChunk::Right)
 	{
-		m_fileChunk.m_startingByte += FileChunk::m_chunkKBSize * sizeof(KB);
-
-		SetFilePointer(m_fHandle, m_fileChunk.m_startingByte, NULL, FILE_BEGIN);
 		DWORD read;
 		ReadFile(
 			m_fHandle,
@@ -133,6 +130,8 @@ bool udp::FileEntry::GetKBInternal(size_t index, KB& outKB)
 			&read,
 			NULL
 		);
+		m_fileChunk.m_startingByte += FileChunk::m_chunkKBSize * sizeof(KB);
+		KBPos = m_fileChunk.GetKBPos(index);
 	}
 
 	return m_fileChunk.GetKB(index, outKB);
