@@ -170,7 +170,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 		return false;
 	}
 	
-	int reqId = static_cast<int>(std::get<double>(map.find("id")->second.m_payload));
+	int reqId = std::get<json_parser::JSONNumber>(map.find("id")->second.m_payload).ToInt();
 	
 	if (op == "hash")
 	{
@@ -182,9 +182,9 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 			
 			JSONValue res(ValueType::Object);
 			auto& resMap = res.GetAsObj();
-			resMap["id"] = JSONValue(static_cast<double>(reqId));
+			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
 			resMap["hash"] = JSONValue(hash);
-			resMap["fileSize"] = JSONValue(static_cast<double>(fileSize));
+			resMap["fileSize"] = JSONValue(json_parser::JSONNumber(fileSize));
 			SendResponse(res);
 		}));
 		
@@ -194,7 +194,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 	if (op == "set_file_id")
 	{
 		std::string file = std::get<std::string>(map.find("file")->second.m_payload);
-		int fileId = static_cast<int>(std::get<double>(map.find("file_id")->second.m_payload));
+		int fileId = std::get<json_parser::JSONNumber>(map.find("file_id")->second.m_payload).ToInt();
 
 		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
 			if (!m_fileManager)
@@ -212,7 +212,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 			m_fileManager->RegisterFile(fileId, file);
 			JSONValue res(ValueType::Object);
 			auto& resMap = res.GetAsObj();
-			resMap["id"] = JSONValue(static_cast<double>(reqId));
+			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
 			SendResponse(res);
 		}));
 
@@ -233,7 +233,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 				bool t = true;
 			}
 
-			resMap["id"] = JSONValue(static_cast<double>(reqId));
+			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
 			SendResponse(res);
 		}));
 		
@@ -244,16 +244,16 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 	{
 		udp::Init();
 		
-		int fileId = static_cast<int>(std::get<double>(map.find("fileId")->second.m_payload));
+		int fileId = std::get<json_parser::JSONNumber>(map.find("fileId")->second.m_payload).ToInt();
 		std::string ipAddr = std::get<std::string>(map.find("ip_addr")->second.m_payload);
-		size_t fileSize = static_cast<size_t>(std::get<double>(map.find("fileSize")->second.m_payload));
+		size_t fileSize = std::get<json_parser::Number>(map.find("fileSize")->second.m_payload).ToInt();
 		std::string path = std::get<std::string>(map.find("path")->second.m_payload);
 
 		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
 			new udp::FileDownloaderObject(ipAddr, fileId, fileSize, path, [=]() {
 				JSONValue res(ValueType::Object);
 				auto& resMap = res.GetAsObj();
-				resMap["id"] = JSONValue(static_cast<double>(reqId));
+				resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
 				SendResponse(res);
 			});
 		}));
@@ -263,7 +263,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 
 	if (op == "get_download_progress")
 	{
-		int fileId = static_cast<int>(std::get<double>(map.find("fileId")->second.m_payload));
+		int fileId = std::get<json_parser::JSONNumber>(map.find("fileId")->second.m_payload).ToInt();
 
 		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
 			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
@@ -284,11 +284,11 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 
 			JSONValue res(ValueType::Object);
 			auto& resMap = res.GetAsObj();
-			resMap["id"] = JSONValue(static_cast<double>(reqId));
+			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
 			JSONValue prog(json_parser::ValueType::List);
 			auto& l = prog.GetAsList();
-			l.push_back(JSONValue(static_cast<double>(finished)));
-			l.push_back(JSONValue(static_cast<double>(all)));
+			l.push_back(JSONValue(json_parser::JSONNumber(finished)));
+			l.push_back(JSONValue(json_parser::JSONNumber(all)));
 			resMap["progress"] = prog;
 			SendResponse(res);
 		}));
@@ -298,7 +298,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 
 	JSONValue res(ValueType::Object);
 	auto& resMap = res.GetAsObj();
-	resMap["id"] = JSONValue(static_cast<double>(reqId));
+	resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
 	SendResponse(res);
 	return true;
 }

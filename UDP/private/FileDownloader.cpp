@@ -5,6 +5,7 @@
 #include "Job.h"
 #include "Jobs.h"
 
+#include "FileWriter.h"
 #include "UDP.h"
 
 #include <WinSock2.h>
@@ -58,7 +59,6 @@ udp::FileDownloaderObject::FileDownloaderObject(const std::string& ipAddr, int f
     udp::Init();
 
     m_clientSock = new ClientSocket();
-    m_dataReceived = new udp::UDPRes[FileChunk::m_chunkKBSize];
 
     if (!m_fileDownloaderJS)
     {
@@ -121,6 +121,11 @@ udp::FileDownloaderObject::FileDownloaderObject(const std::string& ipAddr, int f
                 bool missing = false;
                 for (int i = 0; i < FileChunk::m_chunkKBSize; ++i)
                 {
+                    if (!m_self.m_dataReceived)
+                    {
+                        break;
+                    }
+
                     if (m_self.m_dataReceived[i].m_state.Equals(UDPResState::m_empty))
                     {
                         req.UpBit(i);
@@ -161,25 +166,23 @@ udp::FileDownloaderObject::FileDownloaderObject(const std::string& ipAddr, int f
         size_t numKB = ceil((double)m_fileSize / sizeof(KB));
         size_t numChunks = ceil((double)numKB / FileChunk::m_chunkKBSize);
 
-        HANDLE fHandle = CreateFile(
-            m_path.c_str(),
-            GENERIC_WRITE,
-            NULL,
-            NULL,
-            OPEN_ALWAYS,
-            FILE_ATTRIBUTE_NORMAL,
-            NULL
-        );
-
+        FileWriter* fileWriter = nullptr;
         for (size_t i = 0; i < numChunks; ++i)
         {
+            if (!fileWriter)
+            {
+                fileWriter = new FileWriter(m_path, m_fileSize);
+            }
+
+            size_t startKB = i * FileChunk::m_chunkKBSize;
+            m_fileKBOffset = startKB;
+
+            m_dataReceived = new udp::UDPRes[FileChunk::m_chunkKBSize];
             for (int j = 0; j < FileChunk::m_chunkKBSize; ++j)
             {
                 m_dataReceived[j].m_state = UDPResState::m_empty;
             }
 
-            size_t startKB = i * FileChunk::m_chunkKBSize;
-            m_fileKBOffset = startKB;
             for (int j = numKB - startKB; j < FileChunk::m_chunkKBSize; ++j)
             {
                 m_dataReceived[j].m_state = UDPResState::m_blank;
@@ -220,30 +223,22 @@ udp::FileDownloaderObject::FileDownloaderObject(const std::string& ipAddr, int f
                 m_bytesReceived = min(received, m_fileSize);
             }
 
-            size_t startByte = i * FileChunk::m_chunkKBSize * sizeof(KB);
-            for (size_t j = 0; j < FileChunk::m_chunkKBSize; ++j)
-            {
-                size_t cur = startByte + j * sizeof(KB);
-                if (cur >= m_fileSize)
-                {
-                    break;
-                }
-
-                size_t endByte = min(m_fileSize, cur + sizeof(KB));
-                DWORD written;
-                WriteFile(
-                    fHandle,
-                    &m_dataReceived[j].m_data,
-                    endByte - cur,
-                    &written,
-                    NULL
-                );
-            }
-
+            fileWriter->PushToQueue(m_dataReceived);
         }
-        CloseHandle(fHandle);
-
         m_done = true;
+
+        if (fileWriter)
+        {
+            fileWriter->Finalize(jobs::Job::CreateFromLambda([=]() {
+                itemFinished();
+                delete fileWriter;
+            }));
+        }
+        else
+        {
+            jobs::RunSync(jobs::Job::CreateFromLambda(itemFinished));
+        }
+
         jobs::RunSync(jobs::Job::CreateFromLambda(itemFinished));
     }));
 }
@@ -251,7 +246,6 @@ udp::FileDownloaderObject::FileDownloaderObject(const std::string& ipAddr, int f
 udp::FileDownloaderObject::~FileDownloaderObject()
 {
     delete m_clientSock;
-    delete[] m_dataReceived;
 }
 
 

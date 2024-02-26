@@ -306,7 +306,17 @@ namespace
 			{
 				json_parser::JSONValue& val = m_generatedValues.emplace_back();
 				val.m_type = json_parser::ValueType::Number;
-				val.m_payload = childSymbols[0]->m_symbolData.m_number;
+
+				std::string numStr = "";
+				{
+					scripting::CompositeSymbol* numSymbol = static_cast<scripting::CompositeSymbol*>(childSymbols[0]);
+					for (auto it = numSymbol->m_childSymbols.begin(); it != numSymbol->m_childSymbols.end(); ++it)
+					{
+						numStr += (*it)->m_name;
+					}
+				}
+
+				val.m_payload = json_parser::JSONNumber(numStr);
 				m_state = BuilderState::Done;
 				return;
 			}

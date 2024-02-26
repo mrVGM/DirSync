@@ -15,8 +15,19 @@ namespace json_parser
 		Object = 3
 	};
 
+	struct JSONNumber
+	{
+		std::string m_numStr;
+
+		JSONNumber();
+		JSONNumber(long long num);
+		JSONNumber(const std::string& num);
+
+		long long ToInt() const;
+	};
+
 	struct JSONValue;
-	typedef std::variant<double, std::string, std::list<JSONValue>, std::map<std::string, JSONValue>> JSONValuePayload;
+	typedef std::variant<JSONNumber, std::string, std::list<JSONValue>, std::map<std::string, JSONValue>> JSONValuePayload;
 
 	struct JSONValue
 	{
@@ -25,7 +36,7 @@ namespace json_parser
 		ValueType m_type = ValueType::Number;
 		JSONValuePayload m_payload;
 
-		JSONValue(const JSONValuePayload& payload = 0.0);
+		JSONValue(const JSONValuePayload& payload = "");
 		JSONValue(ValueType type);
 
 		std::map<std::string, JSONValue>& GetAsObj();

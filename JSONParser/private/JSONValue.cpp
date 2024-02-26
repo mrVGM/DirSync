@@ -77,7 +77,7 @@ namespace
 			if (m_value.m_type == ValueType::Number)
 			{
 				std::stringstream ss;
-				ss << std::get<double>(m_value.m_payload);
+				ss << std::get<JSONNumber>(m_value.m_payload).m_numStr;
 
 				m_lines.push_back(ss.str());
 				return true;
@@ -287,5 +287,33 @@ std::string json_parser::JSONValue::ToString(bool pretty) const
 	tmp.m_newLine = pretty ? "\n" : "";
 	std::string res;
 	tmp.Build(res);
+	return res;
+}
+
+json_parser::JSONNumber::JSONNumber()
+{
+	m_numStr = "0";
+}
+
+json_parser::JSONNumber::JSONNumber(long long num)
+{
+	std::stringstream ss;
+	ss << num;
+
+	ss >> m_numStr;
+}
+
+json_parser::JSONNumber::JSONNumber(const std::string& num) :
+	m_numStr(num)
+{
+}
+
+long long json_parser::JSONNumber::ToInt() const
+{
+	std::stringstream ss;
+	ss << m_numStr;
+
+	long long res;
+	ss >> res;
 	return res;
 }
