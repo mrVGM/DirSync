@@ -7,7 +7,11 @@
 </head>
 <body>
     <div style="height: 100%; display: flex; flex-direction: column; align-items: center;">
-        <div style="flex: 1;"></div>
+        <div style="position: relative; flex: 1; width: 100%;">
+            <div style="position: absolute; left: 20%; right: 20%; top: 10%; bottom: 10%; border: solid; border-width: 1px; overflow: auto; user-select: none;">
+                <div id="bar_space" style="display: flex; flex-direction: column; align-items: center;"></div>
+            </div>
+        </div>
         <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
             <div style="margin: 3px;">
                 <label>Server IP</label>
@@ -68,6 +72,27 @@
             const div = document.createElement("div");
             div.innerHTML = str;
             infoPanel.appendChild(div);
+        }
+
+        function createBar() {
+            const template = document.createElement('div');
+
+            const src = `
+<div style="display: flex; width: 90%; height: 30px; background-color: azure; margin-bottom: 5px;">
+    <div style="position: relative; flex: 1; margin: 3px;">
+        <div myId="bar" style="position: absolute; width: 20%; height: 100%; background-color: aquamarine;"></div>
+        <div style="display: flex; flex-direction: column; position: absolute; width: 100%; height: 100%; align-items: center;">
+            <div style="flex: 1;"></div>
+            <div myId="label"></div>
+            <div style="flex: 1;"></div>
+        </div>
+    </div>
+</div>
+`
+            template.innerHTML = src;
+            const res = template.children[0];
+
+            return res;
         }
 
         const { startServer, getRecs } = require('./scripts/httpserver');
@@ -154,8 +179,13 @@
                             path: path.join(document.prefs.dstDir, fileEntry.path)
                         }).then(() => {
                             checkProgress = false;
+                            bar.parentNode.removeChild(bar);
                             resolve();
                         });
+
+                        let bar;
+                        let prBar;
+                        let label;
 
                         async function reqProgress() {
                             if (!checkProgress) {
@@ -167,8 +197,22 @@
                                 fileId: fileId,
                             });
 
-                            progress1[0] = prog.progress[0];
-                            progress1[1] = prog.progress[1];
+                            if (prog.progress[0] > 0) {
+                                if (!bar) {
+                                    bar = createBar();
+                                    prBar = bar.querySelector('div[myId="bar"]');
+                                    label = bar.querySelector('div[myId="label"]');
+
+                                    document.getElementById('bar_space').appendChild(bar);
+                                }
+
+                                let progress = 0;
+                                if (prog.progress[1] > 0) {
+                                    progress = prog.progress[0] / prog.progress[1];
+                                }
+                                prBar.style.width = `${100 * progress}%`;
+                                label.innerHTML = `${fileEntry.path} [${prog.progress[0]}/${prog.progress[1]}]`; 
+                            }
 
                             setTimeout(reqProgress, 10);
                         }
