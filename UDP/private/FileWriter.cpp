@@ -66,7 +66,7 @@ udp::FileWriter::FileWriter(const std::string& path, size_t fileSize) :
 		GENERIC_WRITE,
 		NULL,
 		NULL,
-		OPEN_ALWAYS,
+		CREATE_ALWAYS,
 		FILE_ATTRIBUTE_NORMAL,
 		NULL
 	);
