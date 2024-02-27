@@ -53,7 +53,7 @@ namespace udp
 	struct UDPReq
 	{
 		unsigned int m_fileId;
-		unsigned int m_offset;
+		size_t m_offset;
 		unsigned char m_mask[1024] = {};
 
 		void UpBit(unsigned int bitNumber);
@@ -64,7 +64,7 @@ namespace udp
 	{
 		UDPResState m_state = UDPResState::m_empty;
 		unsigned int m_fileId;
-		unsigned int m_offset;
+		size_t m_offset;
 		KB m_data;
 	};
 

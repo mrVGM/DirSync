@@ -15,6 +15,7 @@
 #include "FileManager.h"
 
 #include "UDP.h"
+#include "UDPClient.h"
 #include "FileDownloader.h"
 
 #include <iostream>
@@ -250,7 +251,20 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 		std::string path = std::get<std::string>(map.find("path")->second.m_payload);
 
 		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
-			new udp::FileDownloaderObject(ipAddr, fileId, fileSize, path, [=]() {
+
+			udp::UDPClientObject* client = nullptr;
+			{
+				BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+				BaseObject* tmp = container.GetObjectOfClass(udp::UDPClientMeta::GetInstance());
+				if (!tmp)
+				{
+					tmp = new udp::UDPClientObject();
+				}
+
+				client = static_cast<udp::UDPClientObject*>(tmp);
+			}
+
+			new udp::FileDownloaderObject(*client, ipAddr, fileId, fileSize, path, [=]() {
 				JSONValue res(ValueType::Object);
 				auto& resMap = res.GetAsObj();
 				resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));

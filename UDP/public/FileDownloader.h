@@ -4,19 +4,13 @@
 #include "BaseObject.h"
 
 #include "UDP.h"
+#include "UDPClient.h"
 
 #include <functional>
 #include <string>
 
 namespace udp
 {
-	class FileDownloaderJSMeta : public BaseObjectMeta
-	{
-	public:
-		static const FileDownloaderJSMeta& GetInstance();
-		FileDownloaderJSMeta();
-	};
-
 	class FileDownloaderMeta : public BaseObjectMeta
 	{
 	public:
@@ -27,6 +21,8 @@ namespace udp
 	class FileDownloaderObject : public BaseObject
 	{
 	private:
+		UDPClientObject& m_udpClient;
+
 		int m_toFinish = 3;
 		bool m_done = false;
 
@@ -38,12 +34,16 @@ namespace udp
 
 		udp::UDPRes* m_dataReceived = nullptr;
 
-		void* m_clientSock = nullptr;
-
 		std::function<void()> m_downloadFinished;
 
 	public:
-		FileDownloaderObject(const std::string& ipAddr, int fileId, size_t fileSize, const std::string& path, const std::function<void()>& downloadFinished);
+		FileDownloaderObject(
+			UDPClientObject& udpClient,
+			const std::string& ipAddr,
+			int fileId, size_t fileSize,
+			const std::string& path,
+			const std::function<void()>& downloadFinished);
+
 		virtual ~FileDownloaderObject();
 
 		int GetFileId() const;

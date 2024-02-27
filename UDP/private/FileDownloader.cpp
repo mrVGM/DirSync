@@ -1,5 +1,7 @@
 #include "FileDownloader.h"
 
+#include "UDPClient.h"
+
 #include "JobSystemMeta.h"
 #include "JobSystem.h"
 #include "Job.h"
@@ -7,6 +9,8 @@
 
 #include "FileWriter.h"
 #include "UDP.h"
+
+#include "BaseObjectContainer.h"
 
 #include <WinSock2.h>
 #include <chrono>
@@ -16,26 +20,42 @@
 namespace
 {
     udp::FileDownloaderMeta m_instance;
-    udp::FileDownloaderJSMeta m_fileDownloaderJSMeta;
 
-    jobs::JobSystem* m_fileDownloaderJS = nullptr;
-
+    jobs::JobSystem* m_downloaderJS = nullptr;
+    jobs::JobSystem* m_pingJS = nullptr;
 
     struct ClientSocket
     {
         SOCKET m_socket;
         sockaddr_in ClientAddr;
     };
-}
 
-udp::FileDownloaderJSMeta::FileDownloaderJSMeta() :
-    BaseObjectMeta(&jobs::JobSystemMeta::GetInstance())
-{
-}
+    void CacheJS()
+    {
+        using namespace udp;
 
-const udp::FileDownloaderJSMeta& udp::FileDownloaderJSMeta::GetInstance()
-{
-    return m_fileDownloaderJSMeta;
+        BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+
+        {
+            BaseObject* js = container.GetObjectOfClass(FileDownloadersJSMeta::GetInstance());
+            if (!js)
+            {
+                js = new jobs::JobSystem(UDPClientJSMeta::GetInstance(), 1);
+            }
+
+            m_downloaderJS = static_cast<jobs::JobSystem*>(js);
+        }
+
+        {
+            BaseObject* js = container.GetObjectOfClass(PingServerJSMeta::GetInstance());
+            if (!js)
+            {
+                js = new jobs::JobSystem(PingServerJSMeta::GetInstance(), 1);
+            }
+
+            m_pingJS = static_cast<jobs::JobSystem*>(js);
+        }
+    }
 }
 
 udp::FileDownloaderMeta::FileDownloaderMeta() :
@@ -49,7 +69,14 @@ const udp::FileDownloaderMeta& udp::FileDownloaderMeta::GetInstance()
 }
 
 
-udp::FileDownloaderObject::FileDownloaderObject(const std::string& ipAddr, int fileId, size_t fileSize, const std::string& path, const std::function<void()>& downloadFinished) :
+udp::FileDownloaderObject::FileDownloaderObject(
+    UDPClientObject& udpClient,
+    const std::string& ipAddr,
+    int fileId, size_t fileSize,
+    const std::string& path,
+    const std::function<void()>& downloadFinished) :
+
+    m_udpClient(udpClient),
     BaseObject(FileDownloaderMeta::GetInstance()),
     m_fileId(fileId),
     m_fileSize(fileSize),
@@ -57,26 +84,19 @@ udp::FileDownloaderObject::FileDownloaderObject(const std::string& ipAddr, int f
     m_downloadFinished(downloadFinished)
 {
     udp::Init();
+    CacheJS();
 
-    m_clientSock = new ClientSocket();
+    ClientSocket* clientSock = static_cast<ClientSocket*>(m_udpClient.GetClientSock());
 
-    if (!m_fileDownloaderJS)
-    {
-        m_fileDownloaderJS = new jobs::JobSystem(udp::FileDownloaderJSMeta::GetInstance(), 1);
-    }
-
-    m_fileDownloaderJS->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
-        ClientSocket* clientSock = static_cast<ClientSocket*>(m_clientSock);
-        
+    m_downloaderJS->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
         SOCKET& SendSocket = clientSock->m_socket;
         sockaddr_in& ClientAddr = clientSock->ClientAddr;
 
-        SendSocket = INVALID_SOCKET;
-        SendSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-        if (SendSocket == INVALID_SOCKET) {
-            std::cout << "socket failed with error " << SendSocket << std::endl;
-            return;
-        }
+        short port = 27015;
+        const char* local_host = ipAddr.c_str();
+        ClientAddr.sin_family = AF_INET;
+        ClientAddr.sin_port = htons(port);
+        ClientAddr.sin_addr.s_addr = inet_addr(local_host);
 
         auto itemFinished = [=]() {
             --m_toFinish;
@@ -95,12 +115,10 @@ udp::FileDownloaderObject::FileDownloaderObject(const std::string& ipAddr, int f
         class PingServer : public jobs::Job
         {
         private:
-            std::string m_serverIP;
             FileDownloaderObject& m_self;
             jobs::Job* m_done = nullptr;
         public:
-            PingServer(const std::string& serverIP, FileDownloaderObject& self, jobs::Job* done) :
-                m_serverIP(serverIP),
+            PingServer(FileDownloaderObject& self, jobs::Job* done) :
                 m_self(self),
                 m_done(done)
             {
@@ -135,33 +153,25 @@ udp::FileDownloaderObject::FileDownloaderObject(const std::string& ipAddr, int f
 
                 if (!missing)
                 {
-                    jobs::RunAsync(new PingServer(m_serverIP, m_self, m_done));
+                    jobs::RunAsync(new PingServer(m_self, m_done));
                     return;
                 }
 
-                ClientSocket* clientSock = static_cast<ClientSocket*>(m_self.m_clientSock);
+                ClientSocket* clientSock = static_cast<ClientSocket*>(m_self.m_udpClient.GetClientSock());
 
                 SOCKET& SendSocket = clientSock->m_socket;
                 sockaddr_in& ClientAddr = clientSock->ClientAddr;
 
-
                 int clientAddrSize = (int)sizeof(ClientAddr);
-                short port = 27015;
-                const char* local_host = m_serverIP.c_str();
-                ClientAddr.sin_family = AF_INET;
-                ClientAddr.sin_port = htons(port);
-                ClientAddr.sin_addr.s_addr = inet_addr(local_host);
-
                 int clientResult = sendto(SendSocket,
                     reinterpret_cast<char*>(&req), sizeof(req), 0, (SOCKADDR*)&ClientAddr, clientAddrSize);
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                jobs::RunAsync(new PingServer(m_serverIP, m_self, m_done));
+                jobs::RunAsync(new PingServer(m_self, m_done));
             }
         };
-        jobs::RunAsync(new PingServer(ipAddr, *this, jobs::Job::CreateFromLambda(itemFinished)));
+        jobs::RunAsync(new PingServer(*this, jobs::Job::CreateFromLambda(itemFinished)));
 
-        udp::UDPRes res;
 
         size_t numKB = ceil((double)m_fileSize / sizeof(KB));
         size_t numChunks = ceil((double)numKB / FileChunk::m_chunkKBSize);
@@ -188,39 +198,44 @@ udp::FileDownloaderObject::FileDownloaderObject(const std::string& ipAddr, int f
                 m_dataReceived[j].m_state = UDPResState::m_blank;
             }
 
+            UDPResponseBucket& bucket = m_udpClient.GetOrCreateBucket(m_fileId);
+
             bool missing = true;
             while (missing)
             {
-                struct sockaddr_in SenderAddr;
-                int SenderAddrSize = sizeof(SenderAddr);
-                int bytes_received = recvfrom(SendSocket, reinterpret_cast<char*>(&res), sizeof(res), 0 /* no flags*/, (SOCKADDR*)&SenderAddr, &SenderAddrSize);
+                std::list<UDPRes>& resList = bucket.GetAccumulated();
 
-                if (bytes_received == SOCKET_ERROR)
+                for (auto it = resList.begin(); it != resList.end(); ++it)
                 {
-                    std::cout << "recvfrom failed with error" << WSAGetLastError();
-                }
-                else
-                {
+                    const UDPRes& res = *it;
+
                     if (res.m_fileId == m_fileId && res.m_offset >= startKB)
                     {
                         m_dataReceived[res.m_offset - startKB] = res;
                     }
+
+                    size_t received = i * FileChunk::m_chunkKBSize * sizeof(KB);
+                    missing = false;
+                    for (int i = 0; i < FileChunk::m_chunkKBSize; ++i)
+                    {
+                        if (m_dataReceived[i].m_state.Equals(UDPResState::m_empty))
+                        {
+                            missing = true;
+                        }
+                        else
+                        {
+                            received += sizeof(KB);
+                        }
+                    }
+                    m_bytesReceived = min(received, m_fileSize);
+
+                    if (!missing)
+                    {
+                        break;
+                    }
                 }
 
-                size_t received = i * FileChunk::m_chunkKBSize * sizeof(KB);
-                missing = false;
-                for (int i = 0; i < FileChunk::m_chunkKBSize; ++i)
-                {
-                    if (m_dataReceived[i].m_state.Equals(UDPResState::m_empty))
-                    {
-                        missing = true;
-                    }
-                    else
-                    {
-                        received += sizeof(KB);
-                    }
-                }
-                m_bytesReceived = min(received, m_fileSize);
+                resList.clear();
             }
 
             fileWriter->PushToQueue(m_dataReceived);
@@ -243,11 +258,6 @@ udp::FileDownloaderObject::FileDownloaderObject(const std::string& ipAddr, int f
     }));
 }
 
-udp::FileDownloaderObject::~FileDownloaderObject()
-{
-    delete m_clientSock;
-}
-
 
 int udp::FileDownloaderObject::GetFileId() const
 {
@@ -258,4 +268,8 @@ void udp::FileDownloaderObject::GetProgress(size_t& finished, size_t& all) const
 {
     finished = m_bytesReceived;
     all = m_fileSize;
+}
+
+udp::FileDownloaderObject::~FileDownloaderObject()
+{
 }

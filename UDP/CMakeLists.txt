@@ -9,6 +9,10 @@ add_library (UDP
 	"private/FileDownloader.cpp"
 	"private/FileWriter.h"
 	"private/FileWriter.cpp"
+	"public/UDPResponseBucket.h"
+	"private/UDPResponseBucket.cpp"
+	"public/UDPClient.h"
+	"private/UDPClient.cpp"
 )
 
 target_include_directories(UDP INTERFACE PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/public")
