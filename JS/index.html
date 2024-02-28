@@ -226,6 +226,10 @@
                                     fileId: fileId,
                                 });
 
+                                if (!checkProgress) {
+                                    return;
+                                }
+
                                 if (prog.progress[0] > 0) {
                                     if (!bar) {
                                         bar = createBar();
