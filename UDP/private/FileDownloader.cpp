@@ -72,7 +72,8 @@ const udp::FileDownloaderMeta& udp::FileDownloaderMeta::GetInstance()
 udp::FileDownloaderObject::FileDownloaderObject(
     UDPClientObject& udpClient,
     const std::string& ipAddr,
-    int fileId, size_t fileSize,
+    int fileId,
+    ull fileSize,
     const std::string& path,
     const std::function<void()>& downloadFinished) :
 
@@ -173,18 +174,18 @@ udp::FileDownloaderObject::FileDownloaderObject(
         jobs::RunAsync(new PingServer(*this, jobs::Job::CreateFromLambda(itemFinished)));
 
 
-        size_t numKB = ceil((double)m_fileSize / sizeof(KB));
-        size_t numChunks = ceil((double)numKB / FileChunk::m_chunkKBSize);
+        ull numKB = ceil((double)m_fileSize / sizeof(KB));
+        ull numChunks = ceil((double)numKB / FileChunk::m_chunkKBSize);
 
         FileWriter* fileWriter = nullptr;
-        for (size_t i = 0; i < numChunks; ++i)
+        for (ull i = 0; i < numChunks; ++i)
         {
             if (!fileWriter)
             {
                 fileWriter = new FileWriter(m_path, m_fileSize);
             }
 
-            size_t startKB = i * FileChunk::m_chunkKBSize;
+            ull startKB = i * FileChunk::m_chunkKBSize;
             m_fileKBOffset = startKB;
 
             m_dataReceived = new udp::UDPRes[FileChunk::m_chunkKBSize];
@@ -214,7 +215,7 @@ udp::FileDownloaderObject::FileDownloaderObject(
                         m_dataReceived[res.m_offset - startKB] = res;
                     }
 
-                    size_t received = i * FileChunk::m_chunkKBSize * sizeof(KB);
+                    ull received = i * FileChunk::m_chunkKBSize * sizeof(KB);
                     missing = false;
                     for (int i = 0; i < FileChunk::m_chunkKBSize; ++i)
                     {
@@ -264,7 +265,7 @@ int udp::FileDownloaderObject::GetFileId() const
     return m_fileId;
 }
 
-void udp::FileDownloaderObject::GetProgress(size_t& finished, size_t& all) const
+void udp::FileDownloaderObject::GetProgress(ull& finished, ull& all) const
 {
     finished = m_bytesReceived;
     all = m_fileSize;

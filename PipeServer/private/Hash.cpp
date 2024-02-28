@@ -135,7 +135,7 @@ namespace
 	}
 }
 
-void crypto::HashBinFile(const std::string& fileName, std::string& hash, size_t& fileSize)
+void crypto::HashBinFile(const std::string& fileName, std::string& hash, ull& fileSize)
 {
 	hash = "";
 	fileSize = 0;

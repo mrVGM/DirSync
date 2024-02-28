@@ -196,9 +196,9 @@ udp::FileChunk::~FileChunk()
     m_data = nullptr;
 }
 
-bool udp::FileChunk::GetKB(size_t globalKBPos, KB& outKB)
+bool udp::FileChunk::GetKB(ull globalKBPos, KB& outKB)
 {
-    size_t startingKB = m_startingByte / sizeof(KB);
+    ull startingKB = m_startingByte / sizeof(KB);
 
     if (globalKBPos < startingKB)
     {
@@ -214,9 +214,9 @@ bool udp::FileChunk::GetKB(size_t globalKBPos, KB& outKB)
     return true;
 }
 
-udp::FileChunk::KBPos udp::FileChunk::GetKBPos(size_t globalKBPos)
+udp::FileChunk::KBPos udp::FileChunk::GetKBPos(ull globalKBPos)
 {
-    size_t startingKBPos = m_startingByte / sizeof(KB);
+    ull startingKBPos = m_startingByte / sizeof(KB);
     if (globalKBPos < startingKBPos)
     {
         return FileChunk::KBPos::Left;

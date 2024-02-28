@@ -153,75 +153,117 @@
 
                 const { writeFile, createFolders } = require('./scripts/files');
 
-                for (let i = 0; i < fileList.length; ++i) {
-                    const fileEntry = fileList[i];
+                function* filesIt() {
+                    for (let i = 0; i < fileList.length; ++i) {
+                        yield {
+                            fileEntry: fileList[i],
+                            index: i
+                        };
+                    }
+                }
 
-                    log(`Downloading ${fileEntry.path} (${fileEntry.fileSize / 1000} KB)...`);
+                const it = filesIt();
 
-                    await new Promise(async (resolve, reject) => {
-                        const fileId = i;
-                        let checkProgress = true;
-                        document.curFile = fileEntry;
+                let currentlyDownloading = 0;
+                let downloaded = 0;
 
-                        if (fileEntry.fileSize === 0) {
-                            await writeFile(document.prefs.dstDir, fileEntry.path, []);
-                            resolve();
+                await new Promise((resolve, reject) => {
+
+                    function startDownloading() {
+                        if (currentlyDownloading > 5) {
                             return;
                         }
 
-                        await createFolders(document.prefs.dstDir, fileEntry.path);
+                        let cur = it.next();
+                        if (!cur.value) {
+                            return;
+                        }
 
-                        send({
-                            op: 'run_udp_client',
-                            fileId: fileId,
-                            ip_addr: document.prefs.serverIP,
-                            fileSize: fileEntry.fileSize,
-                            path: path.join(document.prefs.dstDir, fileEntry.path)
-                        }).then(() => {
-                            checkProgress = false;
-                            bar.parentNode.removeChild(bar);
-                            resolve();
-                        });
+                        const { fileEntry, index } = cur.value;
+                        
+                        log(`Downloading ${fileEntry.path} (${fileEntry.fileSize / 1000} KB)...`);
 
-                        let bar;
-                        let prBar;
-                        let label;
+                        ++currentlyDownloading;
 
-                        async function reqProgress() {
-                            if (!checkProgress) {
+                        const pr = new Promise(async (resolve, reject) => {
+                            const fileId = index;
+                            let checkProgress = true;
+                            document.curFile = fileEntry;
+
+                            if (fileEntry.fileSize === 0) {
+                                await writeFile(document.prefs.dstDir, fileEntry.path, []);
+                                resolve();
                                 return;
                             }
 
-                            const prog = await send({
-                                op: 'get_download_progress',
+                            await createFolders(document.prefs.dstDir, fileEntry.path);
+
+                            send({
+                                op: 'run_udp_client',
                                 fileId: fileId,
+                                ip_addr: document.prefs.serverIP,
+                                fileSize: fileEntry.fileSize,
+                                path: path.join(document.prefs.dstDir, fileEntry.path)
+                            }).then(() => {
+                                checkProgress = false;
+                                if (bar) {
+                                    bar.parentNode.removeChild(bar);
+                                }
+                                resolve();
                             });
 
-                            if (prog.progress[0] > 0) {
-                                if (!bar) {
-                                    bar = createBar();
-                                    prBar = bar.querySelector('div[myId="bar"]');
-                                    label = bar.querySelector('div[myId="label"]');
+                            let bar;
+                            let prBar;
+                            let label;
 
-                                    document.getElementById('bar_space').appendChild(bar);
+                            async function reqProgress() {
+                                if (!checkProgress) {
+                                    return;
                                 }
 
-                                let progress = 0;
-                                if (prog.progress[1] > 0) {
-                                    progress = prog.progress[0] / prog.progress[1];
+                                const prog = await send({
+                                    op: 'get_download_progress',
+                                    fileId: fileId,
+                                });
+
+                                if (prog.progress[0] > 0) {
+                                    if (!bar) {
+                                        bar = createBar();
+                                        prBar = bar.querySelector('div[myId="bar"]');
+                                        label = bar.querySelector('div[myId="label"]');
+
+                                        document.getElementById('bar_space').appendChild(bar);
+                                    }
+
+                                    let progress = 0;
+                                    if (prog.progress[1] > 0) {
+                                        progress = prog.progress[0] / prog.progress[1];
+                                    }
+                                    prBar.style.width = `${100 * progress}%`;
+                                    label.innerHTML = `${fileEntry.path} [${prog.progress[0]}/${prog.progress[1]}]`;
                                 }
-                                prBar.style.width = `${100 * progress}%`;
-                                label.innerHTML = `${fileEntry.path} [${prog.progress[0]}/${prog.progress[1]}]`; 
+
+                                setTimeout(reqProgress, 10);
                             }
 
-                            setTimeout(reqProgress, 10);
-                        }
+                            reqProgress();
+                        });
 
-                        reqProgress();
-                    });
+                        pr.then(() => {
+                            ++downloaded;
+                            if (downloaded >= fileList.length) {
+                                resolve();
+                            }
+                            --currentlyDownloading;
+                            startDownloading();
+                        });
 
-                    ++progress2[0];
-                }
+                        startDownloading();
+                    }
+
+                    startDownloading();
+                });
+
                 log('Download Complete!');
 
                 let myFiles = [];

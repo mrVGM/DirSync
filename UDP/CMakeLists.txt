@@ -23,6 +23,7 @@ target_link_libraries(UDP PRIVATE ws2_32)
 target_link_libraries(UDP PUBLIC
 	Base
 	Jobs
+	Common
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

@@ -9,17 +9,17 @@ void udp::FileWriter::Write(UDPRes* resp)
 {
 	jobs::RunAsync(jobs::Job::CreateFromLambda([=]() {
 
-		size_t startByte = m_curByte;
-		size_t totalWritten = 0;
+		ull startByte = m_curByte;
+		ull totalWritten = 0;
 		for (size_t j = 0; j < FileChunk::m_chunkKBSize; ++j)
 		{
-			size_t cur = startByte + j * sizeof(KB);
+			ull cur = startByte + j * sizeof(KB);
 			if (cur >= m_fileSize)
 			{
 				break;
 			}
 
-			size_t endByte = min(m_fileSize, cur + sizeof(KB));
+			ull endByte = min(m_fileSize, cur + sizeof(KB));
 			DWORD written;
 			WriteFile(
 				m_fHandle,
@@ -57,7 +57,7 @@ void udp::FileWriter::Write(UDPRes* resp)
 	}));
 }
 
-udp::FileWriter::FileWriter(const std::string& path, size_t fileSize) :
+udp::FileWriter::FileWriter(const std::string& path, ull fileSize) :
 	m_path(path),
 	m_fileSize(fileSize)
 {

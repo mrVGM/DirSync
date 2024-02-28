@@ -3,6 +3,8 @@
 #include "BaseObjectMeta.h"
 #include "BaseObject.h"
 
+#include "Common.h"
+
 namespace udp
 {
 	struct KB
@@ -25,12 +27,12 @@ namespace udp
 
 		static size_t m_chunkKBSize;
 
-		size_t m_startingByte = 0;
+		ull m_startingByte = 0;
 
 		~FileChunk();
 
-		bool GetKB(size_t globalKBPos, KB& outKB);
-		KBPos GetKBPos(size_t globalKBPos);
+		bool GetKB(ull globalKBPos, KB& outKB);
+		KBPos GetKBPos(ull globalKBPos);
 
 		KB* GetData();
 	};
@@ -53,7 +55,7 @@ namespace udp
 	struct UDPReq
 	{
 		unsigned int m_fileId;
-		size_t m_offset;
+		ull m_offset;
 		unsigned char m_mask[1024] = {};
 
 		void UpBit(unsigned int bitNumber);
@@ -64,7 +66,7 @@ namespace udp
 	{
 		UDPResState m_state = UDPResState::m_empty;
 		unsigned int m_fileId;
-		size_t m_offset;
+		ull m_offset;
 		KB m_data;
 	};
 

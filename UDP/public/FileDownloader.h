@@ -27,9 +27,9 @@ namespace udp
 		bool m_done = false;
 
 		int m_fileId = -1;
-		size_t m_fileSize = 0;
-		size_t m_bytesReceived = 0;
-		size_t m_fileKBOffset = 0;
+		ull m_fileSize = 0;
+		ull m_bytesReceived = 0;
+		ull m_fileKBOffset = 0;
 		std::string m_path;
 
 		udp::UDPRes* m_dataReceived = nullptr;
@@ -40,13 +40,14 @@ namespace udp
 		FileDownloaderObject(
 			UDPClientObject& udpClient,
 			const std::string& ipAddr,
-			int fileId, size_t fileSize,
+			int fileId,
+			ull fileSize,
 			const std::string& path,
 			const std::function<void()>& downloadFinished);
 
 		virtual ~FileDownloaderObject();
 
 		int GetFileId() const;
-		void GetProgress(size_t& finished, size_t& all) const;
+		void GetProgress(ull& finished, ull& all) const;
 	};
 }

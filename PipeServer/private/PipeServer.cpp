@@ -178,7 +178,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 		std::string file = std::get<std::string>(map.find("file")->second.m_payload);
 		jobs::RunAsync(jobs::Job::CreateFromLambda([=]() {
 			std::string hash;
-			size_t fileSize;
+			ull fileSize;
 			crypto::HashBinFile(file, hash, fileSize);
 			
 			JSONValue res(ValueType::Object);
@@ -229,11 +229,6 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 
 			JSONValue res(ValueType::Object);
 			auto& resMap = res.GetAsObj();
-			if (reqId)
-			{
-				bool t = true;
-			}
-
 			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
 			SendResponse(res);
 		}));
@@ -247,7 +242,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 		
 		int fileId = std::get<json_parser::JSONNumber>(map.find("fileId")->second.m_payload).ToInt();
 		std::string ipAddr = std::get<std::string>(map.find("ip_addr")->second.m_payload);
-		size_t fileSize = std::get<json_parser::Number>(map.find("fileSize")->second.m_payload).ToInt();
+		ull fileSize = std::get<json_parser::Number>(map.find("fileSize")->second.m_payload).ToInt();
 		std::string path = std::get<std::string>(map.find("path")->second.m_payload);
 
 		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
@@ -284,8 +279,8 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 			std::list<BaseObject*> downloaders;
 			container.GetAllObjectsOfClass(udp::FileDownloaderMeta::GetInstance(), downloaders);
 
-			size_t finished = 1;
-			size_t all = 1;
+			ull finished = 1;
+			ull all = 1;
 			for (auto it = downloaders.begin(); it != downloaders.end(); ++it)
 			{
 				udp::FileDownloaderObject* cur = static_cast<udp::FileDownloaderObject*>(*it);

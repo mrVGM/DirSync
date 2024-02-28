@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "Common.h"
+
 namespace crypto
 {
 	typedef struct {
@@ -17,5 +19,5 @@ namespace crypto
 	void Update(SHA256_CTX& ctx, const unsigned char* data, size_t dataSize);
 	std::string Finalize(SHA256_CTX& ctx);
 
-	void HashBinFile(const std::string& fileName, std::string& hash, size_t& fileSize);
+	void HashBinFile(const std::string& fileName, std::string& hash, ull& fileSize);
 }
