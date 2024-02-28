@@ -33,17 +33,6 @@
 
             <div style="display: flex; width: 65%; height: 30px; background-color: azure;">
                 <div style="position: relative; flex: 1; margin: 3px;">
-                    <div id="cur_file_progress_bar" style="position: absolute; width: 20%; height: 100%; background-color: aquamarine;"></div>
-                    <div style="display: flex; flex-direction: column; position: absolute; width: 100%; height: 100%; align-items: center;">
-                        <div style="flex: 1;"></div>
-                        <div id="progress_1_label"></div>
-                        <div style="flex: 1;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div style="display: flex; width: 65%; height: 30px; background-color: azure;">
-                <div style="position: relative; flex: 1; margin: 3px;">
                     <div id="overal_progress_bar" style="position: absolute; width: 20%; height: 100%; background-color: aquamarine;"></div>
                     <div style="display: flex; flex-direction: column; position: absolute; width: 100%; height: 100%; align-items: center;">
                         <div style="flex: 1;"></div>
@@ -60,10 +49,6 @@
     </div>
 
     <script>
-        var fileHashesSrc;
-        var fileHashesDst;
-
-        const progress1 = [0, 0];
         const progress2 = [0, 0];
 
         function log(str) {
@@ -143,10 +128,67 @@
 
             log('Backend running!');
 
+            async function calculateFileHashes(rootDir, fileList, progress) {
+                const fs = require('fs');
+                const path = require('path');
+
+                const tmp = fileList.map(async x => {
+                    const fullPath = path.join(rootDir, x.path);
+
+                    const exist = await new Promise((resolve, reject) => {
+                        fs.exists(fullPath, b => {
+                            resolve(b);
+                        });
+                    });
+
+                    if (!exist) {
+                        return new Promise((resolve, reject) => {
+                            resolve({
+                                path: x,
+                                hash: '',
+                                fileSize: 0
+                            });
+                        });
+                        ++progress;
+                    }
+
+                    const req = {
+                        op: 'hash',
+                        file: fullPath
+                    };
+
+                    const pr = send(req);
+                    const res = await pr;
+                    res.path = x.path;
+                    ++progress[0];
+
+                    return res;
+                });
+
+                const res = [];
+                for (let i = 0; i < tmp.length; ++i) {
+                    const resp = await tmp[i];
+                    res.push(resp);
+                }
+
+                return res;
+            }
+
+
             document.getElementById("download_files").addEventListener('click', async event => {
-                const fileList = await getRecs();
+                let serverList = await getRecs();
+                let fileList = serverList;
                 log('File list acquired.')
 
+                progress2[1] = fileList.length;
+                progress2[0] = 0;
+
+                log('Calculating file hashes');
+
+                let myHashes = await calculateFileHashes(document.prefs.dstDir, fileList, progress2);
+                console.log(myHashes);
+
+                fileList = fileList.filter((x, index) => x.hash !== myHashes[index].hash);
 
                 progress2[1] = fileList.length;
                 progress2[0] = 0;
@@ -255,6 +297,7 @@
 
                         pr.then(() => {
                             ++downloaded;
+                            ++progress2[0];
                             if (downloaded >= fileList.length) {
                                 resolve();
                             }
@@ -269,45 +312,6 @@
                 });
 
                 log('Download Complete!');
-
-                let myFiles = [];
-                {
-                    progress2[0] = 0;
-                    progress2[1] = fileList.length;
-
-                    const path = require('path');
-                    myFiles = fileList.map((x, index) => {
-                        return {
-                            path: path.join(document.prefs.dstDir, x.path)
-                        };
-                    });
-                    let reqs = myFiles.map((x, index) => {
-                        const req = {
-                            op: 'hash',
-                            file: x.path
-                        };
-
-                        const pr = send(req);
-                        pr.then(() => {
-                            if (!pr.fulfilled) {
-                                ++progress2[0];
-                            }
-                            pr.fulfilled = true;
-                        });
-                        return pr;
-                    });
-
-                    for (let i = 0; i < reqs.length; ++i) {
-                        reqs[i] = await reqs[i];
-                        myFiles[i].fileSize = reqs[i].fileSize;
-                        myFiles[i].hash = reqs[i].hash;
-                    }
-
-                    console.log(myFiles);
-                }
-
-                fileHashesSrc = fileList;
-                fileHashesDst = myFiles;
             });
 
 
@@ -318,31 +322,8 @@
                     progress2[1] = fileList.length;
 
                     log('Calculating file hashes...');
-                    {
-                        let reqs = fileList.map((x, index) => {
-                            const path = require('path');
-                            const req = {
-                                op: 'hash',
-                                file: path.join(document.prefs.srcDir, x.path)
-                            };
-            
-                            const pr = send(req);
-                            pr.then(() => {
-                                if (!pr.fulfilled) {
-                                    ++progress2[0];
-                                }
-                                pr.fulfilled = true;
-                            });
-                            return pr;
-                        });
-
-                        for (let i = 0; i < reqs.length; ++i) {
-                            reqs[i] = await reqs[i];
-                            fileList[reqs[i].id].hash = reqs[i].hash;
-                            fileList[reqs[i].id].fileSize = reqs[i].fileSize;
-                        }
-                    }
-
+                    fileList = await calculateFileHashes(document.prefs.srcDir, fileList, progress2);
+                    
                     {
                         let reqs = fileList.map((x, index) => {
                             const path = require('path');
@@ -397,13 +378,9 @@
             };
 
             {
-                const bar1 = document.getElementById('cur_file_progress_bar');
                 const bar2 = document.getElementById('overal_progress_bar');
-
-                const label1 = document.getElementById('progress_1_label');
                 const label2 = document.getElementById('progress_2_label');
 
-                updateProgressBar(progress1, bar1, label1);
                 updateProgressBar(progress2, bar2, label2);
             }
         }
