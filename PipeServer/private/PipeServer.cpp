@@ -20,6 +20,7 @@
 
 #include <iostream>
 #include <string>
+#include <thread>
 #include <Windows.h>
 
 
@@ -45,7 +46,7 @@ const pipe_server::ServerMeta& pipe_server::ServerMeta::GetInstance()
 pipe_server::ServerObject::ServerObject() :
 	BaseObject(ServerMeta::GetInstance())
 {
-	m_serverJS = new jobs::JobSystem(jobs::JobSystemMeta::GetInstance(), 1);
+	m_serverJS = new jobs::JobSystem(jobs::JobSystemMeta::GetInstance(), 2);
 	m_serverResponseJS = new jobs::JobSystem(jobs::JobSystemMeta::GetInstance(), 1);
 }
 
@@ -134,7 +135,27 @@ void pipe_server::ServerObject::Start()
 		}));
 	});
 
+	jobs::Job* checkIsAlive = jobs::Job::CreateFromLambda([=]() {
+
+		while (true)
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+			if (!m_messageReceived)
+			{
+				break;
+			}
+			m_messageReceived = false;
+		}
+
+		jobs::RunSync(jobs::Job::CreateFromLambda([]() {
+			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+			lock::LockObject* lock = static_cast<lock::LockObject*>(container.GetObjectOfClass(lock::MainLockMeta::GetInstance()));
+			lock->UnLock();
+		}));
+	});
+
 	m_serverJS->ScheduleJob(serverJob);
+	m_serverJS->ScheduleJob(checkIsAlive);
 }
 
 void pipe_server::ServerObject::StartOut()
@@ -161,6 +182,8 @@ void pipe_server::ServerObject::StartOut()
 bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 {
 	using namespace json_parser;
+
+	m_messageReceived = true;
 
 	JSONValue& tmp = const_cast<JSONValue&>(req);
 	const auto& map = tmp.GetAsObj();

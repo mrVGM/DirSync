@@ -126,6 +126,18 @@
             log('Waiting for backend...');
             const send = await getSendFunc();
 
+            {
+                async function pingServer() {
+                    await send({
+                        op: 'ping'
+                    });
+
+                    setTimeout(pingServer, 1000);
+                }
+
+                pingServer();
+            }
+
             log('Backend running!');
 
             async function calculateFileHashes(rootDir, fileList, progress) {

@@ -21,6 +21,8 @@ namespace pipe_server
 		HANDLE m_hPipe = nullptr;
 		HANDLE m_hPipeOut = nullptr;
 
+		bool m_messageReceived = false;
+
 	public:
 		ServerObject();
 		virtual ~ServerObject();
