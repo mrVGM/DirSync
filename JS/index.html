@@ -13,6 +13,10 @@
             </div>
         </div>
         <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+            <div style="display: flex; margin: 3px; border: solid; border-width: 1px; padding: 5px; background-color: bisque; user-select: none;">
+                <div>My IP: </div>
+                <div id="my_ip" style="margin-left: 10px;"></div>
+            </div>
             <div style="margin: 3px;">
                 <label>Server IP</label>
                 <input id="server_ip" type="text" />
@@ -49,6 +53,33 @@
     </div>
 
     <script>
+        {
+            const { networkInterfaces } = require('os');
+
+            const nets = networkInterfaces();
+            const results = Object.create(null); // Or just '{}', an empty object
+
+            for (const name of Object.keys(nets)) {
+                for (const net of nets[name]) {
+                    // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
+                    // 'IPv4' is in Node <= 17, from 18 it's a number 4 or 6
+                    const familyV4Value = typeof net.family === 'string' ? 'IPv4' : 4
+                    if (net.family === familyV4Value && !net.internal) {
+                        if (!results[name]) {
+                            results[name] = [];
+                        }
+                        results[name].push(net.address);
+                    }
+                }
+            }
+
+            const tmp = document.getElementById('my_ip');
+            const eth = results['Ethernet'];
+            if (eth) {
+                tmp.innerHTML = eth[0];
+            }
+        }
+
         const progress2 = [0, 0];
 
         function log(str) {
@@ -121,7 +152,7 @@
             log('HTTP server running.')
 
             const { exec } = require('child_process');
-            //exec(path.join(__dirname, '..\\out\\build\\x64-debug\\Main\\Main.exe'));
+            //exec(path.join(__dirname, 'bin\\dirsync.exe'));
 
             log('Waiting for backend...');
             const send = await getSendFunc();
