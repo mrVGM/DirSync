@@ -1,4 +1,9 @@
 .vs
 out
-Electron
+!Electron/
+Electron/*
+!Electron/resources/
+Electron/resources/*
+!Electron/resources/app
+Electron/resources/app/node_modules
 
