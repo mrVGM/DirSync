@@ -145,9 +145,8 @@
 
         var myFileList = undefined;
         async function initButtons() {
+            const { ipcRenderer } = require('electron');
             const argv = await new Promise((resolve, reject) => {
-                const { ipcRenderer } = require('electron');
-
                 ipcRenderer.on('argv', (event, data) => {
                     resolve(data);
                 });
@@ -168,10 +167,18 @@
 
             {
                 async function pingServer() {
+                    let quit = true;
+                    setTimeout(() => {
+                        if (quit) {
+                            ipcRenderer.send('quit');
+                        }
+                    }, 2000);
+
                     const r = await send({
                         op: 'ping'
                     });
-
+                    quit = false;
+                    
                     setTimeout(pingServer, 1000);
                 }
 

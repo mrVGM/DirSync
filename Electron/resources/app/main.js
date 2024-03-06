@@ -4,6 +4,10 @@ ipcMain.on('get_argv', (event, data) => {
     event.reply('argv', process.argv);
 });
 
+ipcMain.on('quit', (event, data) => {
+    app.quit();
+});
+
 function createWindow() {
     const win = new BrowserWindow({
         width: 800,
