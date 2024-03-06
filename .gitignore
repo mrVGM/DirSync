@@ -1,5 +1,4 @@
 .vs
 out
-JS/node_modules
-JS/config
+Electron
 

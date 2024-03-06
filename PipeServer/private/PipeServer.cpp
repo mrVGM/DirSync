@@ -18,6 +18,8 @@
 #include "UDPClient.h"
 #include "FileDownloader.h"
 
+#include "Common.h"
+
 #include <iostream>
 #include <string>
 #include <thread>
@@ -46,7 +48,7 @@ const pipe_server::ServerMeta& pipe_server::ServerMeta::GetInstance()
 pipe_server::ServerObject::ServerObject() :
 	BaseObject(ServerMeta::GetInstance())
 {
-	m_serverJS = new jobs::JobSystem(jobs::JobSystemMeta::GetInstance(), 2);
+	m_serverJS = new jobs::JobSystem(jobs::JobSystemMeta::GetInstance(), 1);
 	m_serverResponseJS = new jobs::JobSystem(jobs::JobSystemMeta::GetInstance(), 1);
 }
 
@@ -54,21 +56,48 @@ pipe_server::ServerObject::~ServerObject()
 {
 }
 
-void pipe_server::ServerObject::Start()
+void pipe_server::ServerObject::End()
 {
+	CloseHandle(m_hPipe);
+	CloseHandle(m_hPipeOut);
+}
+
+void pipe_server::ServerObject::Start(std::string& inPipe, std::string& outPipe)
+{
+	guid::CreateGUID(inPipe);
+	guid::CreateGUID(outPipe);
+
+	inPipe = "\\\\.\\pipe\\" + inPipe;
+	outPipe = "\\\\.\\pipe\\" + outPipe;
+
+
 	// Try to open a named pipe; wait for it, if necessary. 
 	m_hPipe = CreateFile(
-		TEXT("\\\\.\\pipe\\mynamedpipe_js_to_cpp"),   // pipe name 
+		TEXT(inPipe.c_str()),   // pipe name 
 		GENERIC_READ,
 		0,              // no sharing 
 		NULL,           // default security attributes
-		OPEN_EXISTING,  // opens existing pipe 
+		CREATE_NEW,  // creates new pipe 
 		0,              // default attributes 
 		NULL);          // no template file 
 
 	// Break if the pipe handle is valid. 
 
 	if (m_hPipe == INVALID_HANDLE_VALUE)
+	{
+		return;
+	}
+
+	m_hPipeOut = CreateFile(
+		TEXT(outPipe.c_str()),   // pipe name 
+		GENERIC_WRITE,
+		0,              // no sharing 
+		NULL,           // default security attributes
+		CREATE_NEW,  // creates new pipe 
+		0,              // default attributes 
+		NULL);
+
+	if (m_hPipeOut == INVALID_HANDLE_VALUE)
 	{
 		return;
 	}
@@ -82,8 +111,7 @@ void pipe_server::ServerObject::Start()
 
 		int numCB = 0;
 		std::string curMessage;
-		bool shutdown = false;
-		while (!shutdown)
+		while (true)
 		{
 			// Read from the pipe. 
 
@@ -118,66 +146,16 @@ void pipe_server::ServerObject::Start()
 
 					if (!HandleReq(req))
 					{
-						shutdown = true;
 						break;
 					}
 				}
 			}
 		}
 
-		CloseHandle(m_hPipe);
-		CloseHandle(m_hPipeOut);
-
-		jobs::RunSync(jobs::Job::CreateFromLambda([]() {
-			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
-			lock::LockObject* lock = static_cast<lock::LockObject*>(container.GetObjectOfClass(lock::MainLockMeta::GetInstance()));
-			lock->UnLock();
-		}));
-	});
-
-	jobs::Job* checkIsAlive = jobs::Job::CreateFromLambda([=]() {
-
-		while (true)
-		{
-			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-			if (!m_messageReceived)
-			{
-				break;
-			}
-			m_messageReceived = false;
-		}
-
-		jobs::RunSync(jobs::Job::CreateFromLambda([]() {
-			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
-			lock::LockObject* lock = static_cast<lock::LockObject*>(container.GetObjectOfClass(lock::MainLockMeta::GetInstance()));
-			lock->UnLock();
-		}));
 	});
 
 	m_serverJS->ScheduleJob(serverJob);
-	m_serverJS->ScheduleJob(checkIsAlive);
 }
-
-void pipe_server::ServerObject::StartOut()
-{
-	// Try to open a named pipe; wait for it, if necessary. 
-	m_hPipeOut = CreateFile(
-		TEXT("\\\\.\\pipe\\mynamedpipe_cpp_to_js"),   // pipe name 
-		GENERIC_WRITE,
-		0,              // no sharing 
-		NULL,           // default security attributes
-		OPEN_EXISTING,  // opens existing pipe 
-		0,              // default attributes 
-		NULL);          // no template file 
-
-	// Break if the pipe handle is valid. 
-
-	if (m_hPipeOut == INVALID_HANDLE_VALUE)
-	{
-		return;
-	}
-}
-
 
 bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 {
