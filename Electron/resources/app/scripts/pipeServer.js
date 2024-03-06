@@ -1,11 +1,6 @@
 const net = require('net');
 
-const PIPE_NAME_SEND = "mynamedpipe_js_to_cpp";
-const PIPE_NAME_RECV = "mynamedpipe_cpp_to_js";
-const PIPE_PATH_SEND = "\\\\.\\pipe\\" + PIPE_NAME_SEND;
-const PIPE_PATH_RECV = "\\\\.\\pipe\\" + PIPE_NAME_RECV;
-
-async function pipe() {
+async function pipe(sendPipeName, receivePipeName) {
 	const handlers = {};
 
 	let sendPipe = new Promise((resolve, reject) => {
@@ -29,7 +24,7 @@ async function pipe() {
 			resolve(send);
 		});
 		server.on('close', function () { });
-		server.listen(PIPE_PATH_SEND, function () { });
+		server.listen(sendPipeName, function () { });
 	});
 
 	let recvPipe = new Promise((resolve, reject) => {
@@ -69,7 +64,7 @@ async function pipe() {
 			resolve();
 		});
 		server.on('close', function () { });
-		server.listen(PIPE_PATH_RECV, function () { });
+		server.listen(receivePipeName, function () { });
 	});
 
 	await recvPipe;

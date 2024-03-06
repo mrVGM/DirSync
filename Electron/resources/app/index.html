@@ -54,13 +54,6 @@
 
     <script>
         {
-            const { ipcRenderer } = require('electron');
-
-            ipcRenderer.on('argv', (event, data) => {
-                console.log(data);
-            });
-            ipcRenderer.send('get_argv');
-
             const { networkInterfaces } = require('os');
 
             const nets = networkInterfaces();
@@ -152,6 +145,15 @@
 
         var myFileList = undefined;
         async function initButtons() {
+            const argv = await new Promise((resolve, reject) => {
+                const { ipcRenderer } = require('electron');
+
+                ipcRenderer.on('argv', (event, data) => {
+                    resolve(data);
+                });
+                ipcRenderer.send('get_argv');
+            });
+
             const path = require('path');
             const { getSendFunc } = await require('./scripts/pipeserver');
 
@@ -162,11 +164,11 @@
             //exec(path.join(__dirname, 'bin\\dirsync.exe'));
 
             log('Waiting for backend...');
-            const send = await getSendFunc();
+            const send = await getSendFunc(argv[1], argv[2]);
 
             {
                 async function pingServer() {
-                    await send({
+                    const r = await send({
                         op: 'ping'
                     });
 

@@ -26,8 +26,12 @@ int main()
 	jobs::RunSync(jobs::Job::CreateFromLambda([&]() {
 		server = new pipe_server::ServerObject();
 		std::string inPipe, outPipe;
-		server->Start(inPipe, outPipe);
 
+		server->GenPipeNames(inPipe, outPipe);
+
+        jobs::RunAsync(jobs::Job::CreateFromLambda([=]() {
+		    server->Start(inPipe, outPipe);
+        }));
 
         frontnedProcessJS->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
 

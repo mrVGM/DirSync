@@ -27,7 +27,8 @@ namespace pipe_server
 		ServerObject();
 		virtual ~ServerObject();
 
-		void Start(std::string& inPipe, std::string& outPipe);
+		void GenPipeNames(std::string& inPipe, std::string& outPipe);
+		void Start(const std::string& inPipe, const std::string& outPipe);
 		void End();
 		bool HandleReq(const json_parser::JSONValue& req);
 		void SendResponse(const json_parser::JSONValue& res);

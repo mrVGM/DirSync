@@ -62,7 +62,7 @@ void pipe_server::ServerObject::End()
 	CloseHandle(m_hPipeOut);
 }
 
-void pipe_server::ServerObject::Start(std::string& inPipe, std::string& outPipe)
+void pipe_server::ServerObject::GenPipeNames(std::string& inPipe, std::string& outPipe)
 {
 	guid::CreateGUID(inPipe);
 	guid::CreateGUID(outPipe);
@@ -70,36 +70,46 @@ void pipe_server::ServerObject::Start(std::string& inPipe, std::string& outPipe)
 	inPipe = "\\\\.\\pipe\\" + inPipe;
 	outPipe = "\\\\.\\pipe\\" + outPipe;
 
+}
 
-	// Try to open a named pipe; wait for it, if necessary. 
-	m_hPipe = CreateFile(
-		TEXT(inPipe.c_str()),   // pipe name 
-		GENERIC_READ,
-		0,              // no sharing 
-		NULL,           // default security attributes
-		CREATE_NEW,  // creates new pipe 
-		0,              // default attributes 
-		NULL);          // no template file 
+void pipe_server::ServerObject::Start(const std::string& inPipe, const std::string& outPipe)
+{
+	m_hPipe = INVALID_HANDLE_VALUE;
+	m_hPipeOut = INVALID_HANDLE_VALUE;
 
-	// Break if the pipe handle is valid. 
-
-	if (m_hPipe == INVALID_HANDLE_VALUE)
+	while (m_hPipe == INVALID_HANDLE_VALUE)
 	{
-		return;
+		// Try to open a named pipe; wait for it, if necessary. 
+		m_hPipe = CreateFile(
+			TEXT(inPipe.c_str()),   // pipe name 
+			GENERIC_READ,
+			0,              // no sharing 
+			NULL,           // default security attributes
+			OPEN_EXISTING,  // opens a pipe 
+			0,              // default attributes 
+			NULL);          // no template file 
+
+		if (m_hPipe == INVALID_HANDLE_VALUE)
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
 	}
 
-	m_hPipeOut = CreateFile(
-		TEXT(outPipe.c_str()),   // pipe name 
-		GENERIC_WRITE,
-		0,              // no sharing 
-		NULL,           // default security attributes
-		CREATE_NEW,  // creates new pipe 
-		0,              // default attributes 
-		NULL);
-
-	if (m_hPipeOut == INVALID_HANDLE_VALUE)
+	while (m_hPipeOut == INVALID_HANDLE_VALUE)
 	{
-		return;
+		m_hPipeOut = CreateFile(
+			TEXT(outPipe.c_str()),   // pipe name 
+			GENERIC_WRITE,
+			0,              // no sharing 
+			NULL,           // default security attributes
+			OPEN_EXISTING,  // opens a pipe
+			0,              // default attributes 
+			NULL);			// no template file
+
+		if (m_hPipeOut == INVALID_HANDLE_VALUE)
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
 	}
 
 	jobs::Job* serverJob = jobs::Job::CreateFromLambda([=]() {
