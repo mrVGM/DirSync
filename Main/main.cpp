@@ -39,8 +39,12 @@ int main()
             exe = exe.substr(0, dirSep + 1);
             exe += "..\\..\\..\\..\\Electron\\electron.exe";
 
+
             std::wstring tmp = std::filesystem::absolute(exe).c_str();
             exe = std::string(tmp.begin(), tmp.end());
+
+            std::string pipeNames = inPipe + " " + outPipe;
+            exe += " " + pipeNames;
 
             STARTUPINFO si;
             PROCESS_INFORMATION pi;

@@ -1,4 +1,8 @@
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, ipcMain } = require('electron')
+
+ipcMain.on('get_argv', (event, data) => {
+    event.reply('argv', process.argv);
+});
 
 function createWindow() {
     const win = new BrowserWindow({
@@ -12,6 +16,11 @@ function createWindow() {
 
 
     win.loadFile('index.html');
+    win.webContents.openDevTools();
+
+    win.on('ready', () => {
+        console.log('ready');
+    });
 
     win.on("close", () => {
         console.log("window closed!");

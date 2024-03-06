@@ -54,6 +54,13 @@
 
     <script>
         {
+            const { ipcRenderer } = require('electron');
+
+            ipcRenderer.on('argv', (event, data) => {
+                console.log(data);
+            });
+            ipcRenderer.send('get_argv');
+
             const { networkInterfaces } = require('os');
 
             const nets = networkInterfaces();
