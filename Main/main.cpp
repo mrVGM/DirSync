@@ -10,6 +10,7 @@
 #include "JobSystem.h"
 
 #include "UDP.h"
+
 #include <filesystem>
 
 int main()
@@ -20,10 +21,13 @@ int main()
 	json_parser::Boot();
 	jobs::Boot();
 
-    jobs::JobSystem* frontnedProcessJS = new jobs::JobSystem(jobs::JobSystemMeta::GetInstance(), 1);
+    udp::Boot();
+
+    jobs::JobSystem* frontnedProcessJS = nullptr;
 
 	pipe_server::ServerObject* server = nullptr;
 	jobs::RunSync(jobs::Job::CreateFromLambda([&]() {
+        jobs::JobSystem* frontnedProcessJS = new jobs::JobSystem(jobs::JobSystemMeta::GetInstance(), 1);
 		server = new pipe_server::ServerObject();
 		std::string inPipe, outPipe;
 

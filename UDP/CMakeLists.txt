@@ -1,18 +1,14 @@
 ﻿cmake_minimum_required (VERSION 3.8)
 
 add_library (UDP
-	"public/UDP.h"
-	"private/UDP.cpp"
 	"public/FileManager.h"
 	"private/FileManager.cpp"
+	"public/UDP.h"
+	"private/UDP.cpp"
+	"public/FileServer.h"
+	"private/FileServer.cpp"
 	"public/FileDownloader.h"
 	"private/FileDownloader.cpp"
-	"private/FileWriter.h"
-	"private/FileWriter.cpp"
-	"public/UDPResponseBucket.h"
-	"private/UDPResponseBucket.cpp"
-	"public/UDPClient.h"
-	"private/UDPClient.cpp"
 )
 
 target_include_directories(UDP INTERFACE PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/public")

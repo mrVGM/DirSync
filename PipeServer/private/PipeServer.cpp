@@ -14,10 +14,6 @@
 
 #include "FileManager.h"
 
-#include "UDP.h"
-#include "UDPClient.h"
-#include "FileDownloader.h"
-
 #include "Common.h"
 
 #include <iostream>
@@ -225,91 +221,6 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 			JSONValue res(ValueType::Object);
 			auto& resMap = res.GetAsObj();
 			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
-			SendResponse(res);
-		}));
-
-		return true;
-	}
-
-	if (op == "run_udp_server")
-	{
-		udp::Init();
-
-		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
-			new udp::UDPServerObject();
-
-			JSONValue res(ValueType::Object);
-			auto& resMap = res.GetAsObj();
-			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
-			SendResponse(res);
-		}));
-		
-		return true;
-	}
-
-	if (op == "run_udp_client")
-	{
-		udp::Init();
-		
-		int fileId = std::get<json_parser::JSONNumber>(map.find("fileId")->second.m_payload).ToInt();
-		std::string ipAddr = std::get<std::string>(map.find("ip_addr")->second.m_payload);
-		ull fileSize = std::get<json_parser::Number>(map.find("fileSize")->second.m_payload).ToInt();
-		std::string path = std::get<std::string>(map.find("path")->second.m_payload);
-
-		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
-
-			udp::UDPClientObject* client = nullptr;
-			{
-				BaseObjectContainer& container = BaseObjectContainer::GetInstance();
-				BaseObject* tmp = container.GetObjectOfClass(udp::UDPClientMeta::GetInstance());
-				if (!tmp)
-				{
-					tmp = new udp::UDPClientObject();
-				}
-
-				client = static_cast<udp::UDPClientObject*>(tmp);
-			}
-
-			new udp::FileDownloaderObject(*client, ipAddr, fileId, fileSize, path, [=]() {
-				JSONValue res(ValueType::Object);
-				auto& resMap = res.GetAsObj();
-				resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
-				SendResponse(res);
-			});
-		}));
-
-		return true;
-	}
-
-	if (op == "get_download_progress")
-	{
-		int fileId = std::get<json_parser::JSONNumber>(map.find("fileId")->second.m_payload).ToInt();
-
-		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
-			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
-			std::list<BaseObject*> downloaders;
-			container.GetAllObjectsOfClass(udp::FileDownloaderMeta::GetInstance(), downloaders);
-
-			ull finished = 1;
-			ull all = 1;
-			for (auto it = downloaders.begin(); it != downloaders.end(); ++it)
-			{
-				udp::FileDownloaderObject* cur = static_cast<udp::FileDownloaderObject*>(*it);
-				if (cur->GetFileId() == fileId)
-				{
-					cur->GetProgress(finished, all);
-					break;
-				}
-			}
-
-			JSONValue res(ValueType::Object);
-			auto& resMap = res.GetAsObj();
-			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
-			JSONValue prog(json_parser::ValueType::List);
-			auto& l = prog.GetAsList();
-			l.push_back(JSONValue(json_parser::JSONNumber(finished)));
-			l.push_back(JSONValue(json_parser::JSONNumber(all)));
-			resMap["progress"] = prog;
 			SendResponse(res);
 		}));
 
