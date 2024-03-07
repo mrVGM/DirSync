@@ -15,6 +15,29 @@ udp::PacketType udp::PacketType::m_full { 'f' };
 udp::PacketType udp::PacketType::m_blank { 'b' };
 udp::PacketType udp::PacketType::m_bitmask { 'm' };
 
+
+void udp::KB::UpBit(unsigned int bitNumber)
+{
+	unsigned int byte = bitNumber / 8;
+	unsigned int bitOffset = bitNumber % 8;
+
+	unsigned char byteMask = 1;
+	byteMask = byteMask << bitOffset;
+
+	m_data[byte] |= byteMask;
+}
+
+bool udp::KB::GetBitState(unsigned int bitNumber) const
+{
+	unsigned int byte = bitNumber / 8;
+	unsigned int bitOffset = bitNumber % 8;
+
+	unsigned char byteMask = 1;
+	byteMask = byteMask << bitOffset;
+
+	return (m_data[byte] & byteMask);
+}
+
 bool udp::PacketType::Equals(const PacketType& other) const
 {
 	return m_data == other.m_data;

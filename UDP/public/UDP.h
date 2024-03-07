@@ -15,6 +15,9 @@ namespace udp
 	struct KB
 	{
 		char m_data[1024] = {};
+
+		void UpBit(unsigned int bitNumber);
+		bool GetBitState(unsigned int bitNumber) const;
 	};
 
 	enum EPacketType
