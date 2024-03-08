@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 
 ipcMain.on('get_argv', (event, data) => {
     event.reply('argv', process.argv);
@@ -6,6 +6,14 @@ ipcMain.on('get_argv', (event, data) => {
 
 ipcMain.on('quit', (event, data) => {
     app.quit();
+});
+
+ipcMain.on('select_dir', async (event, data) => {
+    const { filePaths } = await dialog.showOpenDialog({
+        properties: ['openDirectory']
+    });
+
+    event.reply('path', filePaths);
 });
 
 function createWindow() {

@@ -127,10 +127,54 @@
             dstDir.value = prefs.dstDir;
             serverIP.value = prefs.serverIP;
 
-            srcDir.addEventListener('change', event => {
-                prefs.srcDir = srcDir.value;
+
+            const { ipcRenderer } = require('electron');
+            let selectDirCB = undefined;
+            ipcRenderer.on('path', (event, data) => {
+                selectDirCB(data);
+                selectDirCB = undefined;
+            });
+
+            srcDir.addEventListener('click', async () => {
+                if (selectDirCB) {
+                    return;
+                }
+                let val = srcDir.value;
+                const dir = await new Promise((resolve, reject) => {
+                    selectDirCB = dir => {
+                        resolve(dir);
+                    };
+                    ipcRenderer.send('select_dir');
+                });
+
+                if (dir && dir.length > 0) {
+                    val = dir[0];
+                }
+                prefs.srcDir = val;
+                srcDir.value = val;
                 flushPrefs(prefs);
             });
+
+            dstDir.addEventListener('click', async () => {
+                if (selectDirCB) {
+                    return;
+                }
+                let val = srcDir.value;
+                const dir = await new Promise((resolve, reject) => {
+                    selectDirCB = dir => {
+                        resolve(dir);
+                    };
+                    ipcRenderer.send('select_dir');
+                });
+
+                if (dir && dir.length > 0) {
+                    val = dir[0];
+                }
+                prefs.dstDir = val;
+                dstDir.value = val;
+                flushPrefs(prefs);
+            });
+
             dstDir.addEventListener('change', event => {
                 prefs.dstDir = dstDir.value;
                 flushPrefs(prefs);
