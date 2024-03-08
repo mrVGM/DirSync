@@ -32,7 +32,6 @@
             <div style="display: flex;">
                 <div id="download_files" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Download Files</div>
                 <div id="run_server" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Run Server</div>
-                <div id="quit" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Quit</div>
             </div>
 
             <div class="progress-bar-empty" style="display: flex; width: 65%; height: 30px;">
@@ -400,12 +399,6 @@
                 log('UDP server running.')
 
                 return;
-            });
-
-            document.getElementById("quit").addEventListener('click', async event => {
-                send({
-                    op: 'shutdown'
-                });
             });
 
             function updateProgressBar(progressValue, bar, label){
