@@ -359,8 +359,6 @@ void udp::FileDownloaderObject::Init()
                 *mask = &pkt;
 
                 pingMutex->unlock();
-                
-                std::cout << ((*curChunk)->IsComplete() ? "Complete" : "Incomplete") << std::endl;
             }
 
 
