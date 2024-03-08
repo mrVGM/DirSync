@@ -56,6 +56,43 @@ udp::FileServerMeta::FileServerMeta() :
     }
 }
 
+void udp::FileServerObject::StartBucket(ull bucketID)
+{
+    m_checkWorkingBuckets.lock();
+
+    m_workingBuckets.insert(bucketID);
+
+    m_checkWorkingBuckets.unlock();
+}
+
+void udp::FileServerObject::StopBucket(ull bucketID)
+{
+    m_checkWorkingBuckets.lock();
+
+    m_workingBuckets.erase(bucketID);
+
+    m_checkWorkingBuckets.unlock();
+
+    bool tmp;
+    Bucket* bucket = m_bucketManager.GetOrCreateBucket(bucketID, tmp);
+    {
+        Packet packet;
+        packet.m_packetType = PacketType::m_ping;
+        bucket->PushPacket(packet);
+    }
+}
+
+bool udp::FileServerObject::CheckBucket(ull bucketID)
+{
+    m_checkWorkingBuckets.lock();
+
+    bool res = m_workingBuckets.contains(bucketID);
+
+    m_checkWorkingBuckets.unlock();
+
+    return res;
+}
+
 udp::FileServerObject::FileServerObject() :
 	BaseObject(FileServerMeta::GetInstance())
 {
@@ -107,21 +144,24 @@ void udp::FileServerObject::Init()
                 continue;
             }
 
+            ull bucketId = pkt.m_id;
             bool justCreated;
-            Bucket* bucket = m_bucketManager.GetOrCreateBucket(pkt.m_id, justCreated);
+            Bucket* bucket = m_bucketManager.GetOrCreateBucket(bucketId, justCreated);
             bucket->PushPacket(pkt);
 
-            FileEntry* file = m_fileManger->GetFile(pkt.m_id);
+            FileEntry* file = m_fileManger->GetFile(bucketId);
 
             if (justCreated)
             {
+                StartBucket(bucketId);
+
                 sockaddr_in* senderTmp = new sockaddr_in();
                 *senderTmp = SenderAddr;
                 m_serverHandlersJS->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
                     sockaddr_in sender = *senderTmp;
                     delete senderTmp;
 
-                    while (true)
+                    while (CheckBucket(bucketId))
                     {
                         std::list<Packet>& packets = bucket->GetAccumulated();
 
@@ -157,6 +197,8 @@ void udp::FileServerObject::Init()
 
                         packets.clear();
                     }
+
+                    m_bucketManager.DestroyBucket(bucketId);
                 }));
             }
         }

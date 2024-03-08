@@ -83,6 +83,7 @@ namespace udp
 
 	public:
 		Bucket* GetOrCreateBucket(ull id, bool& justCreated);
+		void DestroyBucket(ull id);
 		~BucketManager();
 	};
 

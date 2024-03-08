@@ -11,6 +11,38 @@ async function handleRequest(req, res) {
         res.end();
         return;
     }
+
+    const stop = /^\/stop\/(?<id>[0-9]+)$/;
+    const stopReq = req.url.match(stop);
+    if (stopReq) {
+        const send = await new Promise((resolve, reject) => {
+            function check() {
+                if (sendToCpp) {
+                    resolve(sendToCpp);
+                    return;
+                }
+
+                setTimeout(check, 500);
+            }
+
+            check();
+        });
+
+        const id = parseInt(stopReq.groups.id);
+
+        await send({
+            op: 'stop',
+            file_id: id
+        });
+
+        res.write(JSON.stringify({
+            fileId: id,
+            state: 'stopped'
+        }));
+
+        res.end();
+        return;
+    }
 }
 
 async function checkLocalFiles() {
@@ -80,5 +112,28 @@ async function getRecs(){
     return recs;
 };
 
+async function stopBucket(id) {
+    let stopReq = await new Promise((resolve, reject) => {
+        http.get(`http://${document.prefs.serverIP}:8080/stop/${id}`, res => {
+            resolve(res);
+        });
+    });
+
+    stopReq = await new Promise((resolve, reject) => {
+        let data = '';
+        stopReq.on('data', chunk => {
+            data += chunk;
+        });
+        stopReq.on('end', () => {
+            resolve(data);
+        });
+    });
+
+    stopReq = JSON.parse(stopReq);
+
+    return stopReq;
+};
+
 exports.getRecs = getRecs;
+exports.stopBucket = stopBucket;
 exports.checkLocalFiles = checkLocalFiles;

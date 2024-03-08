@@ -5,6 +5,8 @@
 #include "BaseObject.h"
 #include "BaseObjectMeta.h"
 
+#include <set>
+
 namespace udp
 {
 	class FileServerJSMeta : public BaseObjectMeta
@@ -31,12 +33,18 @@ namespace udp
 	class FileServerObject : public BaseObject, public Endpoint
 	{
 	private:
+		std::mutex m_checkWorkingBuckets;
 		BucketManager m_bucketManager;
+		std::set<ull> m_workingBuckets;
+
+		void StartBucket(ull bucketID);
+		bool CheckBucket(ull bucketID);
 
 	public:
 		FileServerObject();
 		virtual ~FileServerObject();
 
 		void Init() override;
+		void StopBucket(ull bucketID);
 	};
 }

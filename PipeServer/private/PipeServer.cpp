@@ -318,6 +318,28 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 		return true;
 	}
 
+	if (op == "stop")
+	{
+		unsigned int fileId = std::get<json_parser::JSONNumber>(map.find("file_id")->second.m_payload).ToInt();
+
+		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+
+			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+			std::list<BaseObject*> tmp;
+			BaseObject* obj = container.GetObjectOfClass(udp::FileServerMeta::GetInstance());
+			udp::FileServerObject* fileServer = static_cast<udp::FileServerObject*>(obj);
+			fileServer->StopBucket(fileId);
+
+			JSONValue res(ValueType::Object);
+			auto& resMap = res.GetAsObj();
+			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
+
+			SendResponse(res);
+		}));
+
+		return true;
+	}
+
 	JSONValue res(ValueType::Object);
 	auto& resMap = res.GetAsObj();
 	resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));

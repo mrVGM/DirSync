@@ -111,7 +111,7 @@
             return res;
         }
 
-        const { startServer, getRecs } = require('./scripts/httpserver');
+        const { startServer, getRecs, stopBucket } = require('./scripts/httpserver');
         const { getRecords, readPrefs, flushPrefs, getFileList } = require('./scripts/files');
 
         document.prefs = {};
@@ -144,6 +144,8 @@
         initPrefs();
 
         var myFileList = undefined;
+        var sendToCpp = undefined;
+
         async function initButtons() {
             const { ipcRenderer } = require('electron');
             const argv = await new Promise((resolve, reject) => {
@@ -160,11 +162,11 @@
             log('HTTP server running.')
 
             const { exec } = require('child_process');
-            //exec(path.join(__dirname, 'bin\\dirsync.exe'));
-
+            
             log('Waiting for backend...');
             const send = await getSendFunc(argv[1], argv[2]);
-
+            sendToCpp = send;
+            
             log('Backend running!');
 
             async function calculateFileHashes(rootDir, fileList, progress) {
@@ -248,10 +250,12 @@
                 let currentlyDownloading = 0;
                 let downloaded = 0;
 
+                const maxDownloadsInParallel = 1;
+
                 await new Promise((resolve, reject) => {
 
                     function startDownloading() {
-                        if (currentlyDownloading > 5) {
+                        if (currentlyDownloading >= maxDownloadsInParallel) {
                             return;
                         }
 
@@ -286,10 +290,12 @@
                                 file_size: fileEntry.fileSize,
                                 path: path.join(document.prefs.dstDir, fileEntry.path)
                             }).then(() => {
+
                                 checkProgress = false;
                                 if (bar) {
                                     bar.parentNode.removeChild(bar);
                                 }
+                                stopBucket(fileId).then(x => { console.log(x); });
                                 resolve();
                             });
 
