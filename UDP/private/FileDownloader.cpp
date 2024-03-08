@@ -3,9 +3,11 @@
 #include "JobSystemMeta.h"
 #include "JobSystem.h"
 #include "Job.h"
+#include "Jobs.h"
 
 #include "FileManager.h"
 
+#include <queue>
 #include <iostream>
 #include <WinSock2.h>
 
@@ -142,6 +144,12 @@ void udp::FileDownloaderObject::Init()
         }
     };
 
+#pragma region Allocations
+
+    std::binary_semaphore* semaphore = new std::binary_semaphore{ 1 };
+    std::mutex* writeMutex = new std::mutex();
+    std::queue<Chunk*>* writeQueue = new std::queue<Chunk*>();
+
     std::mutex* pingMutex = new std::mutex();
     Chunk** curChunk = new Chunk*;
     *curChunk = new Chunk(0, *this);
@@ -152,6 +160,51 @@ void udp::FileDownloaderObject::Init()
     *counter = 0;
     ull* fence = new ull;
     *fence = 0;
+
+    bool* fileWritten = new bool;
+    *fileWritten = false;
+
+    int* waiting = new int;
+    *waiting = 4;
+
+    bool* receivingPackets = new bool;
+    *receivingPackets = true;
+
+#pragma endregion
+
+    auto isFileWritten = [=]() {
+        return *fileWritten;
+    };
+
+    auto jobDone = [=]() {
+        jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+            int& cnt = *waiting;
+            --cnt;
+
+            if (cnt > 0)
+            {
+                return;
+            }
+
+            delete semaphore;
+            delete writeMutex;
+            delete writeQueue;
+
+            delete pingMutex;
+            delete curChunk;
+            delete mask;
+
+            delete counter;
+            delete fence;
+
+            delete fileWritten;
+
+            delete waiting;
+            delete receivingPackets;
+
+            delete this;
+        }));
+    };
 
     m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
         struct sockaddr_in serverAddr;
@@ -165,7 +218,7 @@ void udp::FileDownloaderObject::Init()
         pkt.m_packetType = PacketType::m_ping;
         pkt.m_id = m_fileId;
 
-        while (true)
+        while (*receivingPackets)
         {
             pingMutex->lock();
             
@@ -191,10 +244,12 @@ void udp::FileDownloaderObject::Init()
 
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
+
+        jobDone();
     }));
 
     m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
-        while (true)
+        while (!isFileWritten())
         {
             Packet pkt;
             sockaddr_in from;
@@ -208,6 +263,9 @@ void udp::FileDownloaderObject::Init()
 
             m_bucket.PushPacket(pkt);
         }
+        *receivingPackets = false;
+
+        jobDone();
     }));
 
     m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
@@ -252,7 +310,14 @@ void udp::FileDownloaderObject::Init()
             {
                 ull numKB = static_cast<ull>(static_cast<double>(m_fileSize) / sizeof(KB));
                 ull startKB = (*curChunk)->m_offset + FileChunk::m_chunkSizeInKBs;
-                delete* curChunk;
+
+                writeMutex->lock();
+                
+                writeQueue->push(*curChunk);
+                semaphore->release();
+                
+                writeMutex->unlock();
+
                 *curChunk = nullptr;
 
                 if (startKB < numKB) {
@@ -278,6 +343,67 @@ void udp::FileDownloaderObject::Init()
             packets.clear();
         }
 
-        bool t = true;
+        jobDone();
+    }));
+
+    m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+        HANDLE f = CreateFile(
+            m_path.c_str(),
+            GENERIC_WRITE,
+            NULL,
+            NULL,
+            CREATE_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL,
+            NULL
+        );
+
+        ull written = 0;
+        while (written < m_fileSize)
+        {
+            semaphore->acquire();
+
+            std::queue<Chunk*> local;
+
+            writeMutex->lock();
+
+            while (!writeQueue->empty())
+            {
+                Chunk* toWrite = writeQueue->front();
+                writeQueue->pop();
+                local.push(toWrite);
+            }
+
+            writeMutex->unlock();
+
+            while (!local.empty())
+            {
+                Chunk* toWrite = local.front();
+                local.pop();
+
+                for (size_t i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
+                {
+                    Packet& cur = toWrite->m_packets[i];
+
+                    size_t bytes = min(sizeof(KB), m_fileSize - written);
+                    DWORD tmp = 0;
+                    WriteFile(
+                        f,
+                        &cur.m_payload,
+                        bytes,
+                        &tmp,
+                        NULL
+                    );
+
+                    written += tmp;
+                }
+
+                delete toWrite;
+            }
+        }
+
+        CloseHandle(f);
+
+        *fileWritten = true;
+        jobDone();
     }));
 }
