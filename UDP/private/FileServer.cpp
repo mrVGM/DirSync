@@ -124,7 +124,7 @@ void udp::FileServerObject::Init()
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(port);
     // OR, you can do serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1"); // or 0.0.0.0 for tests over the net
+    serverAddr.sin_addr.s_addr = inet_addr("0.0.0.0");
 
     if (bind(m_socket, (SOCKADDR*)&serverAddr, sizeof(serverAddr))) {
         std::cout << "bind failed with error " << WSAGetLastError() << std::endl;
