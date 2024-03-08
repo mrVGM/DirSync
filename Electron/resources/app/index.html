@@ -13,7 +13,7 @@
             </div>
         </div>
         <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
-            <div style="display: flex; margin: 3px; border: solid; border-width: 1px; padding: 5px; background-color: bisque; user-select: none;">
+            <div class="progress-bar-empty" style="display: flex; margin: 3px; border: solid; border-width: 1px; padding: 5px; user-select: none;">
                 <div>My IP: </div>
                 <div id="my_ip" style="margin-left: 10px;"></div>
             </div>
@@ -35,9 +35,9 @@
                 <div id="quit" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Quit</div>
             </div>
 
-            <div style="display: flex; width: 65%; height: 30px; background-color: azure;">
+            <div class="progress-bar-empty" style="display: flex; width: 65%; height: 30px;">
                 <div style="position: relative; flex: 1; margin: 3px;">
-                    <div id="overal_progress_bar" style="position: absolute; width: 20%; height: 100%; background-color: aquamarine;"></div>
+                    <div id="overal_progress_bar" class="progress-bar-full" style="position: absolute; width: 20%; height: 100%;"></div>
                     <div style="display: flex; flex-direction: column; position: absolute; width: 100%; height: 100%; align-items: center;">
                         <div style="flex: 1;"></div>
                         <div id="progress_2_label"></div>
@@ -94,9 +94,9 @@
             const template = document.createElement('div');
 
             const src = `
-<div style="display: flex; width: 90%; height: 30px; background-color: azure; margin-bottom: 5px;">
+<div class="progress-bar-empty" style="display: flex; width: 90%; height: 30px; margin-bottom: 5px;">
     <div style="position: relative; flex: 1; margin: 3px;">
-        <div myId="bar" style="position: absolute; width: 20%; height: 100%; background-color: aquamarine;"></div>
+        <div myId="bar" class="progress-bar-full" style="position: absolute; width: 20%; height: 100%;"></div>
         <div style="display: flex; flex-direction: column; position: absolute; width: 100%; height: 100%; align-items: center;">
             <div style="flex: 1;"></div>
             <div myId="label"></div>

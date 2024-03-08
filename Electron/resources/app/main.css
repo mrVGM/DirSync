@@ -5,12 +5,21 @@ html, body {
     top: 0%;
     bottom: 0%;
     white-space: nowrap;
+    background-color: rgb(238,238,238);
 }
 
 .button {
-
+    background-color: rgb(221,221,221);
 }
 
 .button:hover {
-    background-color:blanchedalmond
+    background-color: rgb(154,154,154);
+}
+
+.progress-bar-empty {
+    background-color: rgb(221,221,221);
+}
+
+.progress-bar-full {
+    background-color: rgb(187,187,187);
 }
