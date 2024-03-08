@@ -102,7 +102,7 @@ udp::FileServerObject::FileServerObject() :
     }
 
     m_serverJS = new jobs::JobSystem(FileServerJSMeta::GetInstance(), 1);
-    m_serverHandlersJS = new jobs::JobSystem(FileServerHandlersJSMeta::GetInstance(), 1);
+    m_serverHandlersJS = new jobs::JobSystem(FileServerHandlersJSMeta::GetInstance(), 5);
 }
 
 udp::FileServerObject::~FileServerObject()
@@ -199,6 +199,7 @@ void udp::FileServerObject::Init()
                     }
 
                     m_bucketManager.DestroyBucket(bucketId);
+                    file->UnloadData();
                 }));
             }
         }

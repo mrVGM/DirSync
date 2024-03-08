@@ -4,7 +4,6 @@ const http = require('http');
 const path = require('path');
 
 async function handleRequest(req, res) {
-    console.log(req.url);
     if (req.url === '/records') {
         const fileList = await myFileList;
         res.write(JSON.stringify(fileList));

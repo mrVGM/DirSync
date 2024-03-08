@@ -96,15 +96,7 @@ udp::FileEntry::FileEntry(int id, const std::string& path)
 
 udp::FileEntry::~FileEntry()
 {
-	if (m_fHandle)
-	{
-		CloseHandle(m_fHandle);
-	}
-
-	if (m_fileChunk)
-	{
-		delete m_fileChunk;
-	}
+	UnloadData();
 }
 
 void udp::FileEntry::Init(int id, const std::string& path)
@@ -165,4 +157,20 @@ bool udp::FileEntry::GetKB(KB& outKB, ull offset)
 
 	outKB = tmp;
 	return true;
+}
+
+void udp::FileEntry::UnloadData()
+{
+	if (m_fHandle)
+	{
+		CloseHandle(m_fHandle);
+	}
+
+	if (m_fileChunk)
+	{
+		delete m_fileChunk;
+	}
+
+	m_fHandle = nullptr;
+	m_fileChunk = nullptr;
 }

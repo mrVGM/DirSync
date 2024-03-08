@@ -50,6 +50,7 @@ namespace udp
 		~FileEntry();
 
 		bool GetKB(KB& outKB, ull offset);
+		void UnloadData();
 	};
 
 
