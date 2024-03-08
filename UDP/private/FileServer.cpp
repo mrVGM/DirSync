@@ -138,11 +138,12 @@ void udp::FileServerObject::Init()
 
                             case EPacketType::Bitmask:
                                 {
-                                    Packet toSend = cur;
-                                    toSend.m_packetType = PacketType::m_full;
-
                                     for (size_t i = 0; i < 8 * sizeof(KB); ++i)
                                     {
+                                        Packet toSend = cur;
+                                        toSend.m_offset = cur.m_offset + i;
+                                        toSend.m_packetType = PacketType::m_full;
+
                                         if (cur.m_payload.GetBitState(i))
                                         {
                                             file->GetKB(toSend.m_payload, cur.m_offset + i);

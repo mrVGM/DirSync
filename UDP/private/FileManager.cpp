@@ -158,7 +158,7 @@ bool udp::FileEntry::GetKB(KB& outKB, ull offset)
 		m_fileChunk->m_offsetKB += FileChunk::m_chunkSizeInKBs;
 	}
 
-	if (res == FileChunk::GetKBResult::OK)
+	if (res != FileChunk::GetKBResult::OK)
 	{
 		return false;
 	}

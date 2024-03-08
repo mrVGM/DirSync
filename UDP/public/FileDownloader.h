@@ -28,10 +28,10 @@ namespace udp
 		Bucket m_bucket;
 
 		ull m_fileSize = 0;
+		ull m_received = 0;
 		std::string m_path;
 		std::string m_serverIP;
 
-	public:
 		FileDownloaderObject(
 			const std::string& serverIP,
 			unsigned int fileId,

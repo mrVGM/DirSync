@@ -80,7 +80,7 @@ void udp::FileDownloaderObject::Init()
         {
             m_packets = new Packet[FileChunk::m_chunkSizeInKBs];
 
-            ull numKB = static_cast<ull>(static_cast<double>(downloader.m_fileSize) / sizeof(KB));
+            ull numKB = static_cast<ull>(ceil(static_cast<double>(downloader.m_fileSize) / sizeof(KB)));
 
             ull startKB = m_offset;
             ull endKB = min(startKB + FileChunk::m_chunkSizeInKBs, numKB);
@@ -123,7 +123,7 @@ void udp::FileDownloaderObject::Init()
         {
             for (size_t i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
             {
-                if (m_packets->m_packetType.GetPacketType() == EPacketType::Empty)
+                if (m_packets[i].m_packetType.GetPacketType() == EPacketType::Empty)
                 {
                     return false;
                 }
@@ -136,11 +136,25 @@ void udp::FileDownloaderObject::Init()
         {
             for (size_t i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
             {
-                if (m_packets->m_packetType.GetPacketType() == EPacketType::Empty)
+                if (m_packets[i].m_packetType.GetPacketType() == EPacketType::Empty)
                 {
-                    return outMask.UpBit(i);
+                    outMask.UpBit(i);
                 }
             }
+        }
+
+        size_t GetFull() const
+        {
+            size_t res = 0;
+            for (size_t i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
+            {
+                if (m_packets[i].m_packetType.GetPacketType() == EPacketType::Full)
+                {
+                    ++res;
+                }
+            }
+
+            return res;
         }
     };
 
@@ -288,6 +302,11 @@ void udp::FileDownloaderObject::Init()
 
         while (*curChunk)
         {
+            {
+                Chunk* tmp = *curChunk;
+                m_received = tmp->m_offset * m_fileSize + tmp->GetFull();
+            }
+
             std::list<Packet>& packets = m_bucket.GetAccumulated();
 
             for (auto it = packets.begin(); it != packets.end(); ++it)
@@ -308,7 +327,7 @@ void udp::FileDownloaderObject::Init()
             bool isCurComplete = (*curChunk)->IsComplete();
             if (isCurComplete)
             {
-                ull numKB = static_cast<ull>(static_cast<double>(m_fileSize) / sizeof(KB));
+                ull numKB = static_cast<ull>(ceil(static_cast<double>(m_fileSize) / sizeof(KB)));
                 ull startKB = (*curChunk)->m_offset + FileChunk::m_chunkSizeInKBs;
 
                 writeMutex->lock();
@@ -339,6 +358,7 @@ void udp::FileDownloaderObject::Init()
                 
                 std::cout << ((*curChunk)->IsComplete() ? "Complete" : "Incomplete") << std::endl;
             }
+
 
             packets.clear();
         }

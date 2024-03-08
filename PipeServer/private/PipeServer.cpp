@@ -271,6 +271,50 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 		return true;
 	}
 
+	if (op == "get_download_progress")
+	{
+		unsigned int fileId = std::get<json_parser::JSONNumber>(map.find("file_id")->second.m_payload).ToInt();
+
+		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+
+			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+			std::list<BaseObject*> tmp;
+			container.GetAllObjectsOfClass(udp::FileDownloaderMeta::GetInstance(), tmp);
+
+			udp::FileDownloaderObject* downloader = nullptr;
+			for (auto it = tmp.begin(); it != tmp.end(); ++it)
+			{
+				udp::FileDownloaderObject* cur = static_cast<udp::FileDownloaderObject*>(*it);
+				if (cur->m_fileId == fileId)
+				{
+					downloader = cur;
+					break;
+				}
+			}
+
+			JSONValue res(ValueType::Object);
+			auto& resMap = res.GetAsObj();
+			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
+
+			resMap["progress"] = json_parser::JSONValue(json_parser::ValueType::List);
+			auto& l = resMap["progress"].GetAsList();
+			if (!downloader)
+			{
+				l.push_back(json_parser::JSONValue(json_parser::JSONNumber(1)));
+				l.push_back(json_parser::JSONValue(json_parser::JSONNumber(1)));
+			}
+			else
+			{
+				l.push_back(json_parser::JSONValue(json_parser::JSONNumber(downloader->m_received)));
+				l.push_back(json_parser::JSONValue(json_parser::JSONNumber(downloader->m_fileSize)));
+			}
+
+			SendResponse(res);
+		}));
+
+		return true;
+	}
+
 	JSONValue res(ValueType::Object);
 	auto& resMap = res.GetAsObj();
 	resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
