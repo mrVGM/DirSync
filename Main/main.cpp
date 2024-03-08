@@ -45,8 +45,12 @@ int main()
 
             size_t dirSep = exe.find_last_of('\\', exe.size());
             exe = exe.substr(0, dirSep + 1);
-            exe += "..\\..\\..\\..\\Electron\\electron.exe";
 
+#if DEBUG
+            exe += "..\\..\\..\\..\\Electron\\electron.exe";
+#else
+            exe += "Electron\\electron.exe";
+#endif
 
             std::wstring tmp = std::filesystem::absolute(exe).c_str();
             exe = std::string(tmp.begin(), tmp.end());
