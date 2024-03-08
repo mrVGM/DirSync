@@ -14,6 +14,9 @@
 
 #include "FileManager.h"
 
+#include "FileServer.h"
+#include "FileDownloader.h"
+
 #include "Common.h"
 
 #include <iostream>
@@ -218,6 +221,47 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 			}
 
 			m_fileManager->RegisterFile(fileId, file);
+			JSONValue res(ValueType::Object);
+			auto& resMap = res.GetAsObj();
+			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
+			SendResponse(res);
+		}));
+
+		return true;
+	}
+
+	if (op == "run_udp_server")
+	{
+		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+			udp::FileServerObject* server = new udp::FileServerObject();
+			server->Init();
+
+			JSONValue res(ValueType::Object);
+			auto& resMap = res.GetAsObj();
+			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
+			SendResponse(res);
+		}));
+
+		return true;
+	}
+
+	if (op == "download_file")
+	{
+		unsigned int fileId = std::get<json_parser::JSONNumber>(map.find("file_id")->second.m_payload).ToInt();
+		std::string ipAddr = std::get<std::string>(map.find("ip_addr")->second.m_payload);
+		ull fileSize = std::get<json_parser::JSONNumber>(map.find("file_size")->second.m_payload).ToInt();
+		std::string path = std::get<std::string>(map.find("path")->second.m_payload);
+
+		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+			udp::FileDownloaderObject* downloader = new udp::FileDownloaderObject(
+				ipAddr,
+				fileId,
+				fileSize,
+				path
+			);
+
+			downloader->Init();
+
 			JSONValue res(ValueType::Object);
 			auto& resMap = res.GetAsObj();
 			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));

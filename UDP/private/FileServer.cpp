@@ -4,6 +4,8 @@
 #include "JobSystem.h"
 #include "Job.h"
 
+#include "FileManager.h"
+
 #include <WinSock2.h>
 #include <iostream>
 
@@ -15,6 +17,8 @@ namespace
 
     jobs::JobSystem* m_serverJS = nullptr;
     jobs::JobSystem* m_serverHandlersJS = nullptr;
+
+    udp::FileManagerObject* m_fileManger = nullptr;
 }
 
 const udp::FileServerJSMeta& udp::FileServerJSMeta::GetInstance()
@@ -46,6 +50,10 @@ const udp::FileServerMeta& udp::FileServerMeta::GetInstance()
 udp::FileServerMeta::FileServerMeta() :
 	BaseObjectMeta(nullptr)
 {
+    if (!m_fileManger)
+    {
+        m_fileManger = new FileManagerObject();
+    }
 }
 
 udp::FileServerObject::FileServerObject() :
@@ -103,6 +111,8 @@ void udp::FileServerObject::Init()
             Bucket* bucket = m_bucketManager.GetOrCreateBucket(pkt.m_id, justCreated);
             bucket->PushPacket(pkt);
 
+            FileEntry* file = m_fileManger->GetFile(pkt.m_id);
+
             if (justCreated)
             {
                 sockaddr_in* senderTmp = new sockaddr_in();
@@ -120,7 +130,28 @@ void udp::FileServerObject::Init()
                         for (auto it = packets.begin(); it != packets.end(); ++it)
                         {
                             Packet& cur = *it;
-                            sendto(m_socket, reinterpret_cast<const char*>(&cur), sizeof(Packet), 0, addr, sizeof(sockaddr_in));
+                            switch (cur.m_packetType.GetPacketType())
+                            {
+                            case EPacketType::Ping:
+                                sendto(m_socket, reinterpret_cast<const char*>(&cur), sizeof(Packet), 0, addr, sizeof(sockaddr_in));
+                                break;
+
+                            case EPacketType::Bitmask:
+                                {
+                                    Packet toSend = cur;
+                                    toSend.m_packetType = PacketType::m_full;
+
+                                    for (size_t i = 0; i < 8 * sizeof(KB); ++i)
+                                    {
+                                        if (cur.m_payload.GetBitState(i))
+                                        {
+                                            file->GetKB(toSend.m_payload, cur.m_offset + i);
+                                            sendto(m_socket, reinterpret_cast<const char*>(&toSend), sizeof(Packet), 0, addr, sizeof(sockaddr_in));
+                                        }
+                                    }
+                                }
+                                break;
+                            }
                         }
 
                         packets.clear();

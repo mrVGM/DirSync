@@ -165,26 +165,6 @@
             log('Waiting for backend...');
             const send = await getSendFunc(argv[1], argv[2]);
 
-            {
-                async function pingServer() {
-                    let quit = true;
-                    setTimeout(() => {
-                        if (quit) {
-                            ipcRenderer.send('quit');
-                        }
-                    }, 2000);
-
-                    const r = await send({
-                        op: 'ping'
-                    });
-                    quit = false;
-                    
-                    setTimeout(pingServer, 1000);
-                }
-
-                pingServer();
-            }
-
             log('Backend running!');
 
             async function calculateFileHashes(rootDir, fileList, progress) {
@@ -300,10 +280,10 @@
                             await createFolders(document.prefs.dstDir, fileEntry.path);
 
                             send({
-                                op: 'run_udp_client',
-                                fileId: fileId,
+                                op: 'download_file',
+                                file_id: fileId,
                                 ip_addr: document.prefs.serverIP,
-                                fileSize: fileEntry.fileSize,
+                                file_size: fileEntry.fileSize,
                                 path: path.join(document.prefs.dstDir, fileEntry.path)
                             }).then(() => {
                                 checkProgress = false;

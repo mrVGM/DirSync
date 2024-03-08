@@ -83,7 +83,7 @@ void udp::Bucket::PushPacket(const Packet& res)
 {
 	m_swapListMutex.lock();
 
-	if (!m_received.contains(res.m_offset))
+	if (res.m_packetType.GetPacketType() != EPacketType::Full || !m_received.contains(res.m_offset))
 	{
 		m_workingList->push_back(res);
 		m_received.insert(res.m_offset);

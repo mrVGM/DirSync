@@ -24,10 +24,20 @@ namespace udp
 	class FileDownloaderObject : public BaseObject, public Endpoint
 	{
 	public:
+		unsigned int m_fileId;
 		Bucket m_bucket;
 
+		ull m_fileSize = 0;
+		std::string m_path;
+		std::string m_serverIP;
+
 	public:
-		FileDownloaderObject();
+		FileDownloaderObject(
+			const std::string& serverIP,
+			unsigned int fileId,
+			ull fileSize,
+			const std::string& path);
+
 		virtual ~FileDownloaderObject();
 
 		void Init() override;
