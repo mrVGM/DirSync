@@ -43,14 +43,16 @@ udp::FileDownloaderObject::FileDownloaderObject(
     const std::string& serverIP,
     unsigned int fileId,
     ull fileSize,
-    const std::string& path) :
+    const std::string& path,
+    jobs::Job* done) :
 
     BaseObject(FileDownloaderMeta::GetInstance()),
     m_bucket(0),
     m_fileId(fileId),
     m_serverIP(serverIP),
     m_fileSize(fileSize),
-    m_path(path)
+    m_path(path),
+    m_done(done)
 {
     if (!m_js)
     {
@@ -200,6 +202,8 @@ void udp::FileDownloaderObject::Init()
                 return;
             }
 
+            jobs::RunSync(m_done);
+
             delete semaphore;
             delete writeMutex;
             delete writeQueue;
@@ -304,7 +308,7 @@ void udp::FileDownloaderObject::Init()
         {
             {
                 Chunk* tmp = *curChunk;
-                m_received = tmp->m_offset * m_fileSize + tmp->GetFull();
+                m_received = tmp->m_offset * sizeof(KB) + tmp->GetFull();
             }
 
             std::list<Packet>& packets = m_bucket.GetAccumulated();

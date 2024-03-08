@@ -253,19 +253,22 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 		std::string path = std::get<std::string>(map.find("path")->second.m_payload);
 
 		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+			jobs::Job* done = jobs::Job::CreateFromLambda([=]() {
+				JSONValue res(ValueType::Object);
+				auto& resMap = res.GetAsObj();
+				resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
+				SendResponse(res);
+			});
+
 			udp::FileDownloaderObject* downloader = new udp::FileDownloaderObject(
 				ipAddr,
 				fileId,
 				fileSize,
-				path
+				path,
+				done
 			);
 
 			downloader->Init();
-
-			JSONValue res(ValueType::Object);
-			auto& resMap = res.GetAsObj();
-			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
-			SendResponse(res);
 		}));
 
 		return true;

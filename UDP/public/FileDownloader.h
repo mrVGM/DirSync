@@ -2,6 +2,8 @@
 
 #include "UDP.h"
 
+#include "Job.h"
+
 #include "BaseObject.h"
 #include "BaseObjectMeta.h"
 
@@ -31,12 +33,14 @@ namespace udp
 		ull m_received = 0;
 		std::string m_path;
 		std::string m_serverIP;
+		jobs::Job* m_done = nullptr;
 
 		FileDownloaderObject(
 			const std::string& serverIP,
 			unsigned int fileId,
 			ull fileSize,
-			const std::string& path);
+			const std::string& path,
+			jobs::Job* done);
 
 		virtual ~FileDownloaderObject();
 
