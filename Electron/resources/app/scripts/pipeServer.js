@@ -20,7 +20,10 @@ async function pipe(sendPipeName, receivePipeName) {
 				return resp;
 			};
 
-			stream.on('end', function () { });
+			stream.on('end', function () {
+				const { ipcRenderer } = require('electron');
+				ipcRenderer.send('quit');
+			});
 			resolve(send);
 		});
 		server.on('close', function () { });
