@@ -1,80 +1,49 @@
-const UDP = require('dgram')
-const server = UDP.createSocket('udp4')
-const port = 2222
+const UDP = require('dgram');
+const port = 2222;
 
-function getChunkDataToSend(id, packet) {
-    let startPos = 1024 * packet;
-    const rawChunks = document.fileDataCache[id];
+async function initPeerServer(onMessage) {
+    const server = UDP.createSocket('udp4');
 
-    let rawChunkIndex = 0;
-    while (startPos >= rawChunks[rawChunkIndex].length) {
-        startPos -= rawChunks[rawChunkIndex].length;
-        ++rawChunkIndex;
-    }
+    server.on('message', onMessage);
+    server.bind(port);
 
-    const endPos = startPos + 1024;
-    if (endPos <= rawChunks[rawChunkIndex].length) {
-        let res = new Uint8Array(1024);
-        res.set(rawChunks[rawChunkIndex].slice(startPos, endPos), 0);
-        return res;
-    }
+    await new Promise((resolve, reject) => {
+        server.on('listening', () => {
+            // Server address it’s using to listen
 
-    const left = rawChunks[rawChunkIndex].length - startPos;
-    if (rawChunkIndex == rawChunks.length - 1) {
-        let  res = new Uint8Array(left);
-        res.set(rawChunks[rawChunkIndex].slice(startPos, startPos + left), 0);
-        return res;
-    }
+            const address = server.address();
+            console.log('Listining to ', 'Address: ', address.address, 'Port: ', address.port);
+            resolve();
+        });
+    });
 
-    const nextChunkPart = Math.min(1024 - left, rawChunks[rawChunkIndex + 1].length);
-    const buffSize = left + nextChunkPart;
-    let res = new Uint8Array(buffSize);
-    res = res.set(rawChunks[rawChunkIndex].slice(startPos, startPos + left));
-    res = res.set(rawChunks[rawChunkIndex + 1].slice(0, nextChunkPart), startPos + left);
-    return res;
+    /*
+    server.on('message', async (message, info) => {
+        const messageData = JSON.parse(message.toString());
+
+        const res = JSON.stringify({
+            name: 'ASD'
+        });
+
+        server.send(res, info.port, info.address, (err) => { });
+    });
+    */
+
+    return server;
 }
 
-server.on('listening', () => {
-    // Server address it’s using to listen
+function initPeerClient(onMessage) {
+    const client = UDP.createSocket('udp4');
 
-    const address = server.address()
+    client.on('message', onMessage);
 
-    console.log('Listining to ', 'Address: ', address.address, 'Port: ', address.port)
-})
+    function send(data, address) {
+        client.send(data, port, address, (err, num) => { });
+    };
 
-server.on('message', async (message, info) => {
-    const messageData = JSON.parse(message.toString());
+    return send;
 
-    let t = 0;
-    for (let index = messageData.packetRange[0]; index <= messageData.packetRange[1]; ++index) {
-        function senderFunc(id, index) {
-            const buff = getChunkDataToSend(id, index);
-            const res = new Uint8Array(buff.length + 8);
+}
 
-            function getInt32Bytes(x) {
-                let bytes = [];
-                let i = 4;
-                do {
-                    bytes[--i] = x & (255);
-                    x = x >> 8;
-                } while (i);
-
-                return bytes;
-            }
-
-            {
-                res.set(getInt32Bytes(messageData.fileId));
-                res.set(getInt32Bytes(index), 4);
-                res.set(buff, 8);
-            }
-
-            setTimeout(() => {
-                server.send(res, info.port, info.address, (err) => { });
-            }, 0);
-        }
-
-        senderFunc(messageData.fileId, index);
-    }
-})
-
-server.bind(port)
+exports.initPeerServer = initPeerServer;
+exports.initPeerClient = initPeerClient;

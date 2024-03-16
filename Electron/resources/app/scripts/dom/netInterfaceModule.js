@@ -25,7 +25,7 @@ function getNets() {
     return res;
 }
 
-function init() {
+async function init() {
     const panel = getPanel();
 
     const pairButton = render('button');
@@ -41,7 +41,7 @@ function init() {
     const nets = getNets();
 
     let netOfChoice = undefined;
-
+    
     function updateNetOfChoice() {
         if (!netOfChoice) {
             interfaceButton.tagged.name.innerHTML = 'Choose Net Interface';
@@ -59,7 +59,7 @@ function init() {
 
     updateNetOfChoice();
 
-    interfaceButton.element.addEventListener('click', async () => {
+    async function chooseNet() {
         const netArray = [];
         for (let k in nets) {
             netArray.push({
@@ -74,7 +74,37 @@ function init() {
         flushPrefs(prefs);
 
         updateNetOfChoice();
+    }
+
+    interfaceButton.element.addEventListener('click', chooseNet);
+    pairButton.element.addEventListener('click', async () => {
+        if (!netOfChoice) {
+            await chooseNet();
+        }
+
+
+
     });
+
+
+    const { initPeerServer, initPeerClient } = require('../udpserver');
+    function peerServer(message, info) {
+        const messageData = JSON.parse(message.toString());
+
+        const res = JSON.stringify({
+            name: 'ASD'
+        });
+
+        server.send(res, info.port, info.address, (err) => { });
+    }
+    const server = await initPeerServer(peerServer);
+
+    const client = initPeerClient((message, info) => {
+        const mess = JSON.parse(message.toString());
+        console.log(mess, info);
+    });
+
+    client(JSON.stringify({ asd: 'das' }), 'localhost');
 }
 
 function getPanel() {
