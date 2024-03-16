@@ -36,3 +36,12 @@ html, body {
 .progress-bar-full {
     background-color: rgb(187,187,187);
 }
+.modal {
+    background-color: rgb(204,204,204);
+    border: solid;
+    border-width: 1px;
+}
+
+.option:hover {
+    background-color: rgb(187,187,187);
+}

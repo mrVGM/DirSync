@@ -58,30 +58,19 @@
         var app = {};
 
         const { init } = require('./scripts/init');
-        const { render } = require('./scripts/renderHTML');
+        const { render } = require('./scripts/dom/renderHTML');
 
         async function test() {
             await init();
-            const t = render('network_interface_panel');
-            const b = render('button');
 
-            const panel = render('selection_panel');
-            t.tagged['select-interface'].appendChild(panel.element);
+            const { choose } = require('./scripts/dom/modal');
+            
+            const choice = await choose([
+                { name: 'asdcgfergtrehgrthtyjtfyjyujerdgrfthjntyjyhetaghyrhjrtyertesryryhtryrt' },
+                { name: 'dsa' },
+            ]);
 
-            for (let i = 0; i < 3; ++i) {
-                const item = render('selection_item');
-                item.tagged['item'].innerHTML = i;
-
-                panel.tagged['panel'].appendChild(item.element);
-            }
-
-
-
-            b.tagged.name.innerHTML = 'N/A';
-            t.tagged.button.appendChild(b.element);
-            console.log(t);
-
-            document.getElementById('main').appendChild(t.element);
+            console.log(choice);
         }
 
         test();
