@@ -6,52 +6,86 @@
     <link rel="stylesheet" type="text/css" href="main.css">
 </head>
 <body>
-    <div style="height: 100%; display: flex; flex-direction: column; align-items: center;">
-        <div style="position: relative; flex: 1; width: 100%;">
-            <div style="position: absolute; left: 20%; right: 20%; top: 10%; bottom: 10%; border: solid; border-width: 1px; overflow: auto; user-select: none;">
-                <div id="bar_space" style="display: flex; flex-direction: column; align-items: center;"></div>
-            </div>
-        </div>
-        <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
-            <div class="progress-bar-empty" style="display: flex; margin: 3px; border: solid; border-width: 1px; padding: 5px; user-select: none;">
-                <div>My IP: </div>
-                <div id="my_ip" style="margin-left: 10px;"></div>
-            </div>
-            <div style="margin: 3px;">
-                <label>Server IP</label>
-                <input id="server_ip" type="text" />
-            </div>
-            <div style="margin: 3px;">
-                <label>SRC Dir</label>
-                <input id="src_dir" type="text" />
-            </div>
-            <div style="margin: 3px;">
-                <label>DST Dir</label>
-                <input id="dst_dir" type="text" />
-            </div>
-            <div style="display: flex;">
-                <div id="download_files" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Download Files</div>
-                <div id="run_server" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Run Server</div>
-            </div>
+    <div id="main" style="position: relative; width: 100%; height: 100%;">
 
-            <div class="progress-bar-empty" style="display: flex; width: 65%; height: 30px;">
-                <div style="position: relative; flex: 1; margin: 3px;">
-                    <div id="overal_progress_bar" class="progress-bar-full" style="position: absolute; width: 20%; height: 100%;"></div>
-                    <div style="display: flex; flex-direction: column; position: absolute; width: 100%; height: 100%; align-items: center;">
-                        <div style="flex: 1;"></div>
-                        <div id="progress_2_label"></div>
-                        <div style="flex: 1;"></div>
-                    </div>
+        <div style="height: 100%; display: flex; flex-direction: column; align-items: center;">
+            <div style="position: relative; flex: 1; width: 100%;">
+                <div style="position: absolute; left: 20%; right: 20%; top: 10%; bottom: 10%; border: solid; border-width: 1px; overflow: auto; user-select: none;">
+                    <div id="bar_space" style="display: flex; flex-direction: column; align-items: center;"></div>
                 </div>
             </div>
+            <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+                <div class="progress-bar-empty" style="display: flex; margin: 3px; border: solid; border-width: 1px; padding: 5px; user-select: none;">
+                    <div>My IP: </div>
+                    <div id="my_ip" style="margin-left: 10px;"></div>
+                </div>
+                <div style="margin: 3px;">
+                    <label>Server IP</label>
+                    <input id="server_ip" type="text" />
+                </div>
+                <div style="margin: 3px;">
+                    <label>SRC Dir</label>
+                    <input id="src_dir" type="text" />
+                </div>
+                <div style="margin: 3px;">
+                    <label>DST Dir</label>
+                    <input id="dst_dir" type="text" />
+                </div>
+                <div style="display: flex;">
+                    <div id="download_files" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Download Files</div>
+                    <div id="run_server" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Run Server</div>
+                </div>
 
-        </div>
-        <div style="position: relative; flex: 1; width: 100%">
-            <div id="info_panel" style="position: absolute; left: 10%; right: 10%; top: 20%; bottom: 20%; overflow: auto; border: solid; border-width: 1px; user-select: none; padding: 5px;"></div>
+                <div class="progress-bar-empty" style="display: flex; width: 65%; height: 30px;">
+                    <div style="position: relative; flex: 1; margin: 3px;">
+                        <div id="overal_progress_bar" class="progress-bar-full" style="position: absolute; width: 20%; height: 100%;"></div>
+                        <div style="display: flex; flex-direction: column; position: absolute; width: 100%; height: 100%; align-items: center;">
+                            <div style="flex: 1;"></div>
+                            <div id="progress_2_label"></div>
+                            <div style="flex: 1;"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div style="position: relative; flex: 1; width: 100%">
+                <div id="info_panel" style="position: absolute; left: 10%; right: 10%; top: 20%; bottom: 20%; overflow: auto; border: solid; border-width: 1px; user-select: none; padding: 5px;"></div>
+            </div>
         </div>
     </div>
 
     <script>
+        var app = {};
+
+        const { init } = require('./scripts/init');
+        const { render } = require('./scripts/renderHTML');
+
+        async function test() {
+            await init();
+            const t = render('network_interface_panel');
+            const b = render('button');
+
+            const panel = render('selection_panel');
+            t.tagged['select-interface'].appendChild(panel.element);
+
+            for (let i = 0; i < 3; ++i) {
+                const item = render('selection_item');
+                item.tagged['item'].innerHTML = i;
+
+                panel.tagged['panel'].appendChild(item.element);
+            }
+
+
+
+            b.tagged.name.innerHTML = 'N/A';
+            t.tagged.button.appendChild(b.element);
+            console.log(t);
+
+            document.getElementById('main').appendChild(t.element);
+        }
+
+        test();
+
         {
             const { networkInterfaces } = require('os');
 

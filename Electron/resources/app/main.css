@@ -19,6 +19,10 @@ html, body {
 
 .button {
     background-color: rgb(221,221,221);
+    user-select: none;
+    border: solid;
+    border-width: 2px;
+    padding: 3px;
 }
 
 .button:hover {
