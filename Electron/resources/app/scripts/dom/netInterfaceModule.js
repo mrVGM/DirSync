@@ -86,25 +86,39 @@ async function init() {
 
     });
 
+    const { initServer, initClient } = require('../tcpServer');
+    const tcpServer = await initServer(socket => {
+        socket.on('data', data => {
+            console.log(data.toString());
+        });
+
+        socket.on('close', () => {
+            console.log('closed');
+        });
+    });
 
     const { initPeerServer, initPeerClient } = require('../udpserver');
     function peerServer(message, info) {
         const messageData = JSON.parse(message.toString());
 
-        const res = JSON.stringify({
-            name: 'ASD'
-        });
-
-        server.send(res, info.port, info.address, (err) => { });
+        if (messageData.req === 'TCPPort?') {
+            const res = JSON.stringify({
+                port: tcpServer.address().port
+            });
+            server.send(res, info.port, info.address, (err) => { });
+        }
     }
     const server = await initPeerServer(peerServer);
 
-    const client = initPeerClient((message, info) => {
+    const client = initPeerClient(async (message, info) => {
         const mess = JSON.parse(message.toString());
-        console.log(mess, info);
+        
+        const client = await initClient(info.address, mess.port);
+        client.write('fwefewf');
+        client.destroy();
     });
 
-    client(JSON.stringify({ asd: 'das' }), 'localhost');
+    client(JSON.stringify({ req: 'TCPPort?' }), 'localhost');
 }
 
 function getPanel() {
