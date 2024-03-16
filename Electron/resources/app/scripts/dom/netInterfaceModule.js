@@ -3,6 +3,7 @@ let _panel;
 const { render } = require('./renderHTML');
 const { choose } = require('./modal');
 const { flushPrefs } = require('../files');
+const { log } = require('console');
 
 function getNets() {
     const { networkInterfaces } = require('os');
@@ -82,8 +83,67 @@ async function init() {
             await chooseNet();
         }
 
+        const net = nets[netOfChoice];
+        console.log(net);
 
+        function toBin(n) {
+            const res = [];
+            while (n > 0) {
+                res.unshift(n % 2);
+                n = Math.floor(n / 2);
+            }
 
+            while (res.length < 8) {
+                res.unshift(0);
+            }
+            return res;
+        }
+
+        function fromBin(bin) {
+            res = 0;
+            for (let i = 0; i < 8; ++i) {
+                res *= 2;
+                res += bin[i]
+            }
+            return res;
+        }
+
+        const ip = net.address;
+
+        let ipNum = ip.split('.');
+        ipNum = ipNum.map(x => parseInt(x));
+        ipNum = ipNum.map(x => toBin(x));
+
+        const mask = net.netmask;
+        let numMask = mask.split('.');
+        numMask = numMask.map(x => parseInt(x));
+        numMask = numMask.map(x => toBin(x));
+
+        let broadcastAddr = [];
+        for (let i = 0; i < ipNum.length; ++i) {
+            const cur = [];
+            broadcastAddr.push(cur);
+
+            const curIp = ipNum[i];
+            const curMask = numMask[i];
+            for (let j = 0; j < 8; ++j) {
+                if (curMask[j]) {
+                    cur.push(curIp[j]);
+                }
+                else {
+                    cur.push(1);
+                }
+            }
+        }
+
+        broadcastAddr = broadcastAddr.map(x => fromBin(x));
+        broadcastAddr = broadcastAddr.map(x => x.toString());
+        let broadcastStr = `${broadcastAddr[0]}.${broadcastAddr[1]}.${broadcastAddr[2]}.${broadcastAddr[3]}`;
+
+        onPeerFound = addr => {
+            console.log(addr);
+        };
+        client(JSON.stringify({ req: 'TCPPort?' }), broadcastStr);
     });
 
     const { initServer, initClient } = require('../tcpServer');
@@ -110,15 +170,28 @@ async function init() {
     }
     const server = await initPeerServer(peerServer);
 
+
+    let onPeerFound = undefined;
     const client = initPeerClient(async (message, info) => {
+        if (!onPeerFound) {
+            return;
+        }
+
         const mess = JSON.parse(message.toString());
-        
+        onPeerFound({
+            ip: info.address,
+            port: mess.port
+        });
+
+        return;
+
+
         const client = await initClient(info.address, mess.port);
         client.write('fwefewf');
         client.destroy();
     });
 
-    client(JSON.stringify({ req: 'TCPPort?' }), 'localhost');
+    
 }
 
 function getPanel() {
