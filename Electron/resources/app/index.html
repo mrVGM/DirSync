@@ -58,19 +58,11 @@
         var app = {};
 
         const { init } = require('./scripts/init');
-        const { render } = require('./scripts/dom/renderHTML');
 
         async function test() {
             await init();
-
-            const { choose } = require('./scripts/dom/modal');
-            
-            const choice = await choose([
-                { name: 'asdcgfergtrehgrthtyjtfyjyujerdgrfthjntyjyhetaghyrhjrtyertesryryhtryrt' },
-                { name: 'dsa' },
-            ]);
-
-            console.log(choice);
+            const { init: interfaceMod } = require('./scripts/dom/netInterfaceModule');
+            interfaceMod();
         }
 
         test();
