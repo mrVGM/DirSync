@@ -140,10 +140,57 @@ async function init() {
         broadcastAddr = broadcastAddr.map(x => x.toString());
         let broadcastStr = `${broadcastAddr[0]}.${broadcastAddr[1]}.${broadcastAddr[2]}.${broadcastAddr[3]}`;
 
+
+        const peers = {};
+        let keepChecking = true;
         onPeerFound = addr => {
-            console.log(addr);
+            peers[addr.ip] = addr;
         };
-        client(JSON.stringify({ req: 'TCPPort?' }), broadcastStr);
+
+        function check() {
+            if (!keepChecking) {
+                return;
+            }
+
+            client(JSON.stringify({ req: 'TCPPort?' }), broadcastStr);
+            setTimeout(check, 1000);
+        }
+        check();
+
+        const peer = await new Promise((resolve, reject) => {
+            let finish = false;
+            function updatePeers() {
+                if (finish) {
+                    return;
+                }
+
+                const options = [];
+                for (let k in peers) {
+                    options.push({
+                        name: k
+                    });
+                }
+                choose(options).then(x => {
+                    finish = true;
+                    keepChecking = false;
+                    resolve(x);
+                });
+
+                setTimeout(updatePeers, 2000);
+            }
+
+            updatePeers();
+        });
+
+        onPeerFound = undefined;
+
+        let peerAddr = peers[peer.name];
+        console.log(peerAddr);
+
+        const { initClient } = require('../tcpServer');
+        const tcpClient = await initClient(peerAddr.ip, peerAddr.port);
+        tcpClient.write('fwefewf');
+        tcpClient.destroy();
     });
 
     const { initServer, initClient } = require('../tcpServer');
