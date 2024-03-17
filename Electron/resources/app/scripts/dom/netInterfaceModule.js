@@ -3,7 +3,6 @@ let _panel;
 const { render } = require('./renderHTML');
 const { choose } = require('./modal');
 const { flushPrefs } = require('../files');
-const { log } = require('console');
 
 function getNets() {
     const { networkInterfaces } = require('os');
@@ -26,6 +25,12 @@ function getNets() {
     return res;
 }
 
+function getPCName() {
+    const { hostname } = require('os');
+    const name = hostname();
+    return name;
+}
+
 async function init() {
     const panel = getPanel();
 
@@ -40,6 +45,31 @@ async function init() {
     
     const prefs = document.prefs;
     const nets = getNets();
+
+    let pcName = getPCName();
+    {
+        if (prefs.pcName) {
+            pcName = prefs.pcName;
+        }
+
+        const pcNameEl = panel.tagged.pc_name;
+        pcNameEl.value = pcName;
+
+        let curName = pcName;
+
+        pcNameEl.addEventListener('change', event => {
+            let tmp = pcNameEl.value.trim();
+            if (tmp.length === 0) {
+                pcNameEl.value = curName;
+                return;
+            }
+
+            curName = tmp;
+            pcNameEl.value = curName;
+            prefs.pcName = curName;
+            flushPrefs(prefs);
+        });
+    }
 
     let netOfChoice = undefined;
     
@@ -166,8 +196,10 @@ async function init() {
 
                 const options = [];
                 for (let k in peers) {
+                    const cur = peers[k];
                     options.push({
-                        name: k
+                        name: `${cur.pcName} - ${k}`,
+                        addr: cur
                     });
                 }
                 choose(options).then(x => {
@@ -184,7 +216,7 @@ async function init() {
 
         onPeerFound = undefined;
 
-        let peerAddr = peers[peer.name];
+        let peerAddr = peer.addr;
         console.log(peerAddr);
 
         const { initClient } = require('../tcpServer');
@@ -210,7 +242,8 @@ async function init() {
 
         if (messageData.req === 'TCPPort?') {
             const res = JSON.stringify({
-                port: tcpServer.address().port
+                port: tcpServer.address().port,
+                pcName: pcName
             });
             server.send(res, info.port, info.address, (err) => { });
         }
@@ -227,15 +260,11 @@ async function init() {
         const mess = JSON.parse(message.toString());
         onPeerFound({
             ip: info.address,
-            port: mess.port
+            port: mess.port,
+            pcName: mess.pcName
         });
 
         return;
-
-
-        const client = await initClient(info.address, mess.port);
-        client.write('fwefewf');
-        client.destroy();
     });
 
     
