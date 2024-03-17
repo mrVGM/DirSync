@@ -63,6 +63,9 @@
             await init();
             const { init: interfaceMod } = require('./scripts/dom/netInterfaceModule');
             interfaceMod();
+
+            const { init: directoryMod } = require('./scripts/dom/directoryModule');
+            directoryMod();
         }
 
         test();
@@ -141,14 +144,6 @@
             srcDir.value = prefs.srcDir;
             dstDir.value = prefs.dstDir;
             serverIP.value = prefs.serverIP;
-
-
-            const { ipcRenderer } = require('electron');
-            let selectDirCB = undefined;
-            ipcRenderer.on('path', (event, data) => {
-                selectDirCB(data);
-                selectDirCB = undefined;
-            });
 
             srcDir.addEventListener('click', async () => {
                 if (selectDirCB) {
