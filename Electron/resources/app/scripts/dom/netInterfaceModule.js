@@ -41,7 +41,7 @@ function init() {
     panel.tagged.interface_button.appendChild(interfaceButton.element);
 
 
-    pairButton.tagged.name.innerHTML = 'Find Peer';
+    pairButton.tagged.name.innerHTML = 'Find Server';
     
     const prefs = document.prefs;
     const nets = getNets();
@@ -97,7 +97,7 @@ function init() {
                 name: k
             });
         }
-        const choice = await choose(netArray);
+        const choice = await choose(netArray, 'Choose network interface');
 
         netOfChoice = choice.name;
 
@@ -155,7 +155,7 @@ function init() {
                             addr: cur
                         });
                     }
-                    choose(options).then(x => {
+                    choose(options, 'Choose Server').then(x => {
                         finish = true;
                         keepChecking = false;
                         resolve(x);

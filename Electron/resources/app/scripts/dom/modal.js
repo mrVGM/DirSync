@@ -16,12 +16,15 @@ function setVisible(visible) {
     panel.element.style.display = visible ? 'block' : 'none';
 }
 
-async function choose(options) {
+async function choose(options, title) {
     const panel = getPanel();
 
     setVisible(true);
 
     panel.tagged.options_space.innerHTML = '';
+    if (title) {
+        panel.tagged.header.innerHTML = title;
+    }
 
     const chosen = await new Promise((resolve, reject) => {
         for (let i = 0; i < options.length; ++i) {

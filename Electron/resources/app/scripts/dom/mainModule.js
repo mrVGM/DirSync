@@ -58,7 +58,7 @@ function init() {
 
             const { startPeerServer, getTCPServer } = require('../peers');
             await startPeerServer(netModule.interface.getPCName);
-            log('Peer Server running!');
+            log('Server running!');
 
             const { setHandler, send } = await getTCPServer();
 
@@ -75,7 +75,7 @@ function init() {
 
             const peer = netModule.interface.getPeer();
             if (!peer) {
-                alert('Find a peer, please!');
+                alert('Find a server, please!');
                 return;
             }
 
