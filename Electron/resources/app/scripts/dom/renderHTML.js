@@ -29,7 +29,8 @@ function render(name) {
 
     const res = {
         element: root,
-        tagged: {}
+        tagged: {},
+        interface: {}
     }
 
     const it = getAllChildren(root);

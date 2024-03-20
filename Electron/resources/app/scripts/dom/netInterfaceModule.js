@@ -108,6 +108,9 @@ async function init() {
     }
 
     interfaceButton.element.addEventListener('click', chooseNet);
+
+    let peerChosen;
+
     pairButton.element.addEventListener('click', async () => {
         if (!netOfChoice) {
             await chooseNet();
@@ -218,6 +221,7 @@ async function init() {
 
         let peerAddr = peer.addr;
         console.log(peerAddr);
+        peerChosen = peerAddr;
 
         const { initClient } = require('../tcpServer');
         const tcpClient = await initClient(peerAddr.ip, peerAddr.port);
@@ -248,8 +252,6 @@ async function init() {
             server.send(res, info.port, info.address, (err) => { });
         }
     }
-    const server = await initPeerServer(peerServer);
-
 
     let onPeerFound = undefined;
     const client = initPeerClient(async (message, info) => {
@@ -267,7 +269,15 @@ async function init() {
         return;
     });
 
-    
+    panel.interface = {
+        getTCPServer: () => tcpServer,
+        startPeerServer: async () => {
+            await initPeerServer(peerServer);
+        },
+        getPeer: () => peerChosen
+    };
+
+    return panel;
 }
 
 function getPanel() {

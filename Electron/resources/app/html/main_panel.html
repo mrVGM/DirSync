@@ -1,0 +1,28 @@
+﻿<div style="position:absolute; height: 100%; display: flex; flex-direction: column; align-items: center;">
+    <div style="position: relative; flex: 1; width: 100%;">
+        <div style="position: absolute; left: 20%; right: 20%; top: 10%; bottom: 10%; border: solid; border-width: 1px; overflow: auto; user-select: none;">
+            <div tag="bar_space" style="display: flex; flex-direction: column; align-items: center;"></div>
+        </div>
+    </div>
+    <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+        <div style="display: flex;">
+            <div tag="download_files" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Download Files</div>
+            <div tag="run_server" class="button" style="user-select: none; border: solid; border-width: 2px; padding: 3px; margin: 10px;">Run Server</div>
+        </div>
+
+        <div class="progress-bar-empty" style="display: flex; width: 65%; height: 30px;">
+            <div style="position: relative; flex: 1; margin: 3px;">
+                <div tag="overal_progress_bar" class="progress-bar-full" style="position: absolute; width: 20%; height: 100%;"></div>
+                <div style="display: flex; flex-direction: column; position: absolute; width: 100%; height: 100%; align-items: center;">
+                    <div style="flex: 1;"></div>
+                    <div tag="progress_2_label"></div>
+                    <div style="flex: 1;"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <div style="position: relative; flex: 1; width: 100%">
+        <div tag="info_panel" style="position: absolute; left: 10%; right: 10%; top: 20%; bottom: 20%; overflow: auto; border: solid; border-width: 1px; user-select: none; padding: 5px;"></div>
+    </div>
+</div>

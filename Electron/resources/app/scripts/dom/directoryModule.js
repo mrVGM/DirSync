@@ -25,7 +25,7 @@ async function init() {
 
     const prefs = document.prefs;
 
-    const isValidDir = await new Promise(async (resolve, reject) => {
+    let isValidDir = await new Promise(async (resolve, reject) => {
 
         if (!prefs.dir) {
             resolve(false);
@@ -74,9 +74,28 @@ async function init() {
 
         prefs.dir = val;
         chosenDir = val;
+        isValidDir = true;
         updateDir();
         flushPrefs(prefs);
     });
+
+    async function updateButtonsVisibility() {
+        const mainMod = await app.modules.main();
+        mainMod.tagged.run_server.style.display = panel.tagged.is_server.checked ? '' : 'none';
+        mainMod.tagged.download_files.style.display = panel.tagged.is_server.checked ? 'none' : '';
+    }
+
+    updateButtonsVisibility();
+    
+    panel.tagged.is_server.addEventListener('change', async () => {
+        await updateButtonsVisibility();
+    });
+
+    panel.interface = {
+        isValidDirChosen: () => isValidDir
+    };
+
+    return panel;
 }
 
 function getPanel() {
