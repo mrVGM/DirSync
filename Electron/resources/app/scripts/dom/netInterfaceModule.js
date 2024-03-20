@@ -179,17 +179,9 @@ function init() {
         peerChosen = peer;
         console.log(peer);
 
+        pairButton.tagged.name.innerHTML = peer.name;
+
         return;
-        onPeerFound = undefined;
-
-        let peerAddr = peer.addr;
-        console.log(peerAddr);
-        peerChosen = peerAddr;
-
-        const { initClient } = require('../tcpServer');
-        const tcpClient = await initClient(peerAddr.ip, peerAddr.port);
-        tcpClient.write('fwefewf');
-        tcpClient.destroy();
     });
 
     const { initPeerClient } = require('../udpserver');
