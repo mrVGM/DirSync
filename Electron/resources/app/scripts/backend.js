@@ -121,7 +121,19 @@ async function downloadFile(fileId, serverAddr, size, path, tracker) {
     checkProgress();
 }
 
+async function stop(fileId) {
+    const send = await getSendFunc();
+
+    const res = send({
+        op: 'stop',
+        file_id: fileId,
+    });
+
+    return res;
+}
+
 exports.hashFiles = hashFiles;
 exports.registerFiles = registerFiles;
 exports.runUDPServer = runUDPServer;
 exports.downloadFile = downloadFile;
+exports.stop = stop;

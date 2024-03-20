@@ -13,27 +13,6 @@ function init() {
         infoPanel.appendChild(div);
     }
 
-    function createBar() {
-        const template = document.createElement('div');
-
-        const src = `
-<div class="progress-bar-empty" style="display: flex; width: 90%; height: 30px; margin-bottom: 5px;">
-    <div style="position: relative; flex: 1; margin: 3px;">
-        <div myId="bar" class="progress-bar-full" style="position: absolute; width: 20%; height: 100%;"></div>
-        <div style="display: flex; flex-direction: column; position: absolute; width: 100%; height: 100%; align-items: center;">
-            <div style="flex: 1;"></div>
-            <div myId="label"></div>
-            <div style="flex: 1;"></div>
-        </div>
-    </div>
-</div>
-`
-        template.innerHTML = src;
-        const res = template.children[0];
-
-        return res;
-    }
-
     async function initButtons() {
         const dirModule = await app.modules.dir;
         const netModule = await app.modules.net;
@@ -139,7 +118,7 @@ function init() {
 
             const path = require('path');
 
-            const { downloadFile } = require('../backend');
+            const { downloadFile, stop } = require('../backend');
             const { writeFile, createFolders } = require('../files');
 
             const rootDir = path.join(dirModule.interface.getDir(), '../dst');
@@ -160,6 +139,7 @@ function init() {
 
                     const tracker = {
                         finished: () => {
+                            stop(f.id),
                             releaseSlot();
                             bar.element.remove();
                             resolve();
