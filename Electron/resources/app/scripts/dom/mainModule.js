@@ -95,7 +95,7 @@ function init() {
             let fileList = await tcpClient({ req: 'records' });
 
             const path = require('path');
-            const rootDir = path.join(dirModule.interface.getDir(), '../dst');
+            const rootDir = dirModule.interface.getDir();
 
             const tracker = {
                 progress: p => {
