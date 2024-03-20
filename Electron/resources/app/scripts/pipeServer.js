@@ -1,6 +1,18 @@
+const { resolve } = require('dns/promises');
 const net = require('net');
+const { send } = require('process');
 
-async function pipe(sendPipeName, receivePipeName) {
+let _resolve;
+const pipePr = new Promise((resolve, reject) => {
+	console.log('fwefewfw');
+	_resolve = resolve;
+});
+
+async function sendFunc() {
+	return await pipePr;
+}
+
+async function init(sendPipeName, receivePipeName) {
 	const handlers = {};
 
 	let sendPipe = new Promise((resolve, reject) => {
@@ -71,7 +83,8 @@ async function pipe(sendPipeName, receivePipeName) {
 	});
 
 	await recvPipe;
-	return await sendPipe;
+	_resolve(await sendPipe);
 }
 
-exports.getSendFunc = pipe;
+exports.init = init;
+exports.send = sendFunc;
