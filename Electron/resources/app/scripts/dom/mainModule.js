@@ -69,6 +69,8 @@ function init() {
                 return;
             }
 
+            const { hashFiles, downloadFile, stop } = require('../backend');
+
             downloadFilesButtonActive = false;
 
             const peerAddr = peer.addr;
@@ -76,6 +78,16 @@ function init() {
             const tcpClient = await initClient(peerAddr.ip, peerAddr.port);
 
             let fileList = await tcpClient({ req: 'records' });
+
+            const path = require('path');
+            const rootDir = path.join(dirModule.interface.getDir(), '../dst');
+
+            const progress = [0, 1];
+            const myFiles = await hashFiles(rootDir, fileList, progress);
+
+            fileList = fileList.filter((f, index) => {
+                return myFiles[index].hash !== f.hash;
+            });
 
             let numSlots = 5;
 
@@ -116,12 +128,9 @@ function init() {
                 return pr;
             }
 
-            const path = require('path');
 
-            const { downloadFile, stop } = require('../backend');
             const { writeFile, createFolders } = require('../files');
 
-            const rootDir = path.join(dirModule.interface.getDir(), '../dst');
 
             const downloads = fileList.map(async f => {
                 const filePath = path.join(rootDir, f.path);
