@@ -105,11 +105,14 @@ function init() {
             };
             const myFiles = await hashFiles(rootDir, fileList, tracker);
 
+            console.log(fileList);
+            console.log(myFiles);
+
             fileList = fileList.filter((f, index) => {
                 return myFiles[index].hash !== f.hash;
             });
 
-            let numSlots = 5;
+            let numSlots = 4;
 
             let slotRequests = [];
             function releaseSlot() {
@@ -163,9 +166,29 @@ function init() {
                 }
 
                 await takeSlot();
+
+                log(`Starting to download ${f.path}`);
                 await new Promise((resolve, reject) => {
                     const bar = render('bar');
                     panel.tagged.bar_space.appendChild(bar.element);
+
+                    function formatBytes(cnt) {
+                        let suf = ['B', 'KB', 'MB', 'GB'];
+
+                        let index = 0;
+                        for (let i = 0; i < suf.length; ++i) {
+                            index = i;
+                            if (cnt < 1024) {
+                                break; 
+                            }
+                            cnt /= 1024;
+                        }
+
+                        return `${Math.round(cnt * 100) / 100}${suf[index]}`;
+                    }
+
+                    const maxSamples = 10;
+                    let samples = [];
 
                     const tracker = {
                         finished: () => {
@@ -176,11 +199,28 @@ function init() {
                             ++prog[0];
                             updateOveralProgress(prog);
 
+                            log(`Finished downloading ${f.path}`);
                             resolve();
                         },
                         progress: p => {
+                            let speed = '';
+                            const now = Date.now();
+                            samples.push({
+                                bytes: p.progress[0],
+                                time: now
+                            });
+
+                            while (samples.length > maxSamples) {
+                                samples.shift();
+                            }
+                            if (samples.length >= 2) {
+                                const first = samples[0];
+                                const last = samples[samples.length - 1];
+                                speed = `${formatBytes(1000 * (last.bytes - first.bytes) / (last.time - first.time))}`;
+                            }
+
                             bar.tagged.bar.style.width = `${100 * p.progress[0] / p.progress[1]}%`;
-                            bar.tagged.label.innerHTML = `${f.path} [${p.progress[0]}/${p.progress[1]}]`;
+                            bar.tagged.label.innerHTML = `${f.path}\t\t[${formatBytes(p.progress[0])}/${formatBytes(p.progress[1])}]\t\t${speed}/s`;
                         }
                     };
 
