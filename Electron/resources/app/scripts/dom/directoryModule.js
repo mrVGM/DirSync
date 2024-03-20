@@ -94,7 +94,8 @@ function init() {
     });
 
     panel.interface = {
-        isValidDirChosen: () => isValidDir
+        isValidDirChosen: () => isValidDir,
+        getDir: () => chosenDir
     };
 
     return panel;

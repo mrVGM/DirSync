@@ -38,7 +38,10 @@ async function init(sendPipeName, receivePipeName) {
 			});
 			resolve(send);
 		});
-		server.on('close', function () { });
+		server.on('close', function () {
+			const { ipcRenderer } = require('electron');
+			ipcRenderer.send('quit');
+		});
 		server.listen(sendPipeName, function () { });
 	});
 
@@ -87,4 +90,4 @@ async function init(sendPipeName, receivePipeName) {
 }
 
 exports.init = init;
-exports.send = sendFunc;
+exports.sendFunc = sendFunc;

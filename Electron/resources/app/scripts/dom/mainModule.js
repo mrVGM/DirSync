@@ -43,6 +43,17 @@ function init() {
                 alert('Please choose a valid directory!');
                 return;
             }
+
+            const { hashFiles, registerFiles } = require('../backend');
+            const { getFileList } = require('../files');
+
+            const dir = dirModule.interface.getDir();
+            const fileList = await getFileList(dir);
+            
+            const progress = [0, 1];
+            const hashed = await hashFiles(dir, fileList, progress);
+            
+            await registerFiles(dir, fileList);
             
             const { startPeerServer } = require('../peers');
             await startPeerServer(netModule.interface.getPCName);
