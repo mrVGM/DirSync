@@ -5,6 +5,16 @@ const { render } = require('./renderHTML');
 function init() {
     const panel = getPanel();
 
+    const overalProgress = render('bar');
+    overalProgress.element.style.width = '100%';
+
+    panel.tagged.overal_progress.appendChild(overalProgress.element);
+
+    function updateOveralProgress(progress) {
+        overalProgress.tagged.bar.style.width = `${100 * progress[0] / progress[1]}%`;
+        overalProgress.tagged.label.innerHTML = `[${progress[0]}/${progress[1]}]`;
+    }
+
     function log(str) {
         const infoPanel = panel.tagged.info_panel;
 
@@ -36,8 +46,13 @@ function init() {
             const dir = dirModule.interface.getDir();
             const fileList = await getFileList(dir);
             
-            const progress = [0, 1];
-            const hashed = await hashFiles(dir, fileList, progress);
+            const tracker = {
+                progress: p => {
+                    updateOveralProgress(p)
+                },
+                finished: () => {}
+            };
+            const hashed = await hashFiles(dir, fileList, tracker);
             
             await registerFiles(dir, fileList);
 
@@ -82,8 +97,13 @@ function init() {
             const path = require('path');
             const rootDir = path.join(dirModule.interface.getDir(), '../dst');
 
-            const progress = [0, 1];
-            const myFiles = await hashFiles(rootDir, fileList, progress);
+            const tracker = {
+                progress: p => {
+                    updateOveralProgress(p)
+                },
+                finished: () => { }
+            };
+            const myFiles = await hashFiles(rootDir, fileList, tracker);
 
             fileList = fileList.filter((f, index) => {
                 return myFiles[index].hash !== f.hash;
@@ -131,7 +151,8 @@ function init() {
 
             const { writeFile, createFolders } = require('../files');
 
-
+            const prog = [0, fileList.length];
+            updateOveralProgress(prog);
             const downloads = fileList.map(async f => {
                 const filePath = path.join(rootDir, f.path);
                 await createFolders(rootDir, f.path);
@@ -151,6 +172,10 @@ function init() {
                             stop(f.id),
                             releaseSlot();
                             bar.element.remove();
+
+                            ++prog[0];
+                            updateOveralProgress(prog);
+
                             resolve();
                         },
                         progress: p => {

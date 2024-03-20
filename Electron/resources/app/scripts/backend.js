@@ -5,11 +5,13 @@ async function getSendFunc() {
     return send;
 }
 
-async function hashFiles(rootDir, fileList, progress) {
+async function hashFiles(rootDir, fileList, tracker) {
     const send = await getSendFunc();
 
     const fs = require('fs');
     const path = require('path');
+
+    const prog = [0, fileList.length];
 
     const tmp = fileList.map(async x => {
         const fullPath = path.join(rootDir, x.path);
@@ -28,7 +30,9 @@ async function hashFiles(rootDir, fileList, progress) {
                     fileSize: 0
                 });
             });
-            ++progress[0];
+
+            ++prog[0];
+            tracker.progress(prog);
         }
 
         const req = {
@@ -39,7 +43,8 @@ async function hashFiles(rootDir, fileList, progress) {
         const pr = send(req);
         const res = await pr;
         res.path = x.path;
-        ++progress[0];
+        ++prog[0];
+        tracker.progress(prog);
 
         return res;
     });
