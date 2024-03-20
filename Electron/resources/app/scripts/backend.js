@@ -82,6 +82,46 @@ async function runUDPServer() {
     return resp;
 }
 
+async function checkFileProgress(fileId) {
+    const send = await getSendFunc();
+
+    const res = await send({
+        op: 'get_download_progress',
+        file_id: fileId,
+    });
+
+    return res;
+}
+
+async function downloadFile(fileId, serverAddr, size, path, tracker) {
+    const send = await getSendFunc();
+    
+    send({
+        op: 'download_file',
+        file_id: fileId,
+        ip_addr: serverAddr,
+        file_size: size,
+        path: path
+    }).then(() => {
+        finished = true;
+        tracker.finished();
+    });
+
+    let finished = false;
+    async function checkProgress() {
+        if (finished) {
+            return;
+        }
+
+        let prog = await checkFileProgress(fileId);
+        tracker.progress(prog);
+        setTimeout(checkProgress, 100);
+    }
+
+    checkProgress();
+}
+
 exports.hashFiles = hashFiles;
 exports.registerFiles = registerFiles;
 exports.runUDPServer = runUDPServer;
+exports.downloadFile = downloadFile;
