@@ -19,14 +19,22 @@ async function initClient(address, port) {
 		});
 	});
 
-	return client;
 
+	let handler;
 	client.on('data', function (data) {
-		console.log('Received: ' + data);
+		handler(JSON.parse(data.toString()));
 	});
 
 	client.on('close', function () {
 		console.log('Connection closed');
+	});
+
+	return json => new Promise((resolve, reject) => {
+		handler = message => {
+			handler = undefined;
+			resolve(message);
+		};
+		client.write(JSON.stringify(json));
 	});
 }
 

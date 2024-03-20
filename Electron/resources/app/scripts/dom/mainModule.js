@@ -38,11 +38,18 @@ function init() {
         const dirModule = await app.modules.dir;
         const netModule = await app.modules.net;
 
+        let runServerButtonActive = true;
         panel.tagged.run_server.addEventListener('click', async () => {
+            if (!runServerButtonActive) {
+                return;
+            }
+
             if (!dirModule.interface.isValidDirChosen()) {
                 alert('Please choose a valid directory!');
                 return;
             }
+
+            runServerButtonActive = false;
 
             const { hashFiles, registerFiles } = require('../backend');
             const { getFileList } = require('../files');
@@ -54,10 +61,38 @@ function init() {
             const hashed = await hashFiles(dir, fileList, progress);
             
             await registerFiles(dir, fileList);
-            
-            const { startPeerServer } = require('../peers');
+
+            const { startPeerServer, getTCPServer } = require('../peers');
             await startPeerServer(netModule.interface.getPCName);
             log('Peer Server running!');
+
+            const { setHandler, send } = await getTCPServer();
+
+            setHandler('records', json => {
+                send(hashed);
+            });
+        });
+
+        let downloadFilesButtonActive = true;
+        panel.tagged.download_files.addEventListener('click', async () => {
+            if (!downloadFilesButtonActive) {
+                return;
+            }
+
+            const peer = netModule.interface.getPeer();
+            if (!peer) {
+                alert('Find a peer, please!');
+                return;
+            }
+
+            downloadFilesButtonActive = false;
+
+            const peerAddr = peer.addr;
+            const { initClient } = require('../tcpServer');
+            const tcpClient = await initClient(peerAddr.ip, peerAddr.port);
+
+            let resp = await tcpClient({ req: 'records' });
+            console.log(resp);
         });
     }
 

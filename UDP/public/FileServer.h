@@ -39,12 +39,13 @@ namespace udp
 
 		void StartBucket(ull bucketID);
 		bool CheckBucket(ull bucketID);
-
+		short m_port = -1;
 	public:
 		FileServerObject();
 		virtual ~FileServerObject();
 
 		void Init() override;
 		void StopBucket(ull bucketID);
+		int GetPort() const;
 	};
 }

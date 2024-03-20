@@ -176,6 +176,7 @@ function init() {
             resolve(choice);
         });
 
+        peerChosen = peer;
         console.log(peer);
 
         return;

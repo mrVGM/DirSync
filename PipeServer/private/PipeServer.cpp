@@ -239,6 +239,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 			JSONValue res(ValueType::Object);
 			auto& resMap = res.GetAsObj();
 			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
+			resMap["port"] = JSONValue(JSONNumber(server->GetPort()));
 			SendResponse(res);
 		}));
 

@@ -82,6 +82,11 @@ void udp::FileServerObject::StopBucket(ull bucketID)
     }
 }
 
+int udp::FileServerObject::GetPort() const
+{
+    return m_port;
+}
+
 bool udp::FileServerObject::CheckBucket(ull bucketID)
 {
     m_checkWorkingBuckets.lock();
@@ -130,6 +135,8 @@ void udp::FileServerObject::Init()
         std::cout << "bind failed with error " << WSAGetLastError() << std::endl;
         return;
     }
+
+    m_port = htons(serverAddr.sin_port);
 
     m_serverJS->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
         while (true)

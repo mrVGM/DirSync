@@ -73,5 +73,15 @@ async function registerFiles(rootDir, fileList) {
     }
 }
 
+async function runUDPServer() {
+    const send = await getSendFunc();
+    const resp = await send({
+        op: 'run_udp_server'
+    });
+
+    return resp;
+}
+
 exports.hashFiles = hashFiles;
 exports.registerFiles = registerFiles;
+exports.runUDPServer = runUDPServer;
