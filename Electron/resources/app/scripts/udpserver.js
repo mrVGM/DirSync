@@ -17,18 +17,6 @@ async function initPeerServer(onMessage) {
         });
     });
 
-    /*
-    server.on('message', async (message, info) => {
-        const messageData = JSON.parse(message.toString());
-
-        const res = JSON.stringify({
-            name: 'ASD'
-        });
-
-        server.send(res, info.port, info.address, (err) => { });
-    });
-    */
-
     return server;
 }
 
@@ -41,7 +29,10 @@ function initPeerClient(onMessage) {
         client.send(data, port, address, (err, num) => { });
     };
 
-    return send;
+    return {
+        send,
+        client
+    };
 
 }
 

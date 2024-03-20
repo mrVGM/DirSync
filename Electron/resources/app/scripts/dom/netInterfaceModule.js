@@ -31,7 +31,7 @@ function getPCName() {
     return name;
 }
 
-async function init() {
+function init() {
     const panel = getPanel();
 
     const pairButton = render('button');
@@ -113,110 +113,72 @@ async function init() {
 
     pairButton.element.addEventListener('click', async () => {
         if (!netOfChoice) {
-            await chooseNet();
+            alert('Please choose a network interface!');
+            return;
         }
 
         const net = nets[netOfChoice];
-        console.log(net);
 
-        function toBin(n) {
-            const res = [];
-            while (n > 0) {
-                res.unshift(n % 2);
-                n = Math.floor(n / 2);
-            }
+        const peer = await new Promise(async (resolve, reject) => {
 
-            while (res.length < 8) {
-                res.unshift(0);
-            }
-            return res;
-        }
+            const { findPeers } = require('../peers');
+            const { req, peers, destroySocket } = findPeers(net);
 
-        function fromBin(bin) {
-            res = 0;
-            for (let i = 0; i < 8; ++i) {
-                res *= 2;
-                res += bin[i]
-            }
-            return res;
-        }
+            let stopReqs = false;
+            const lookup = new Promise((resolve, reject) => {
+                function lookupReq() {
+                    if (stopReqs) {
+                        resolve();
+                        return;
+                    }
+                    req();
 
-        const ip = net.address;
-
-        let ipNum = ip.split('.');
-        ipNum = ipNum.map(x => parseInt(x));
-        ipNum = ipNum.map(x => toBin(x));
-
-        const mask = net.netmask;
-        let numMask = mask.split('.');
-        numMask = numMask.map(x => parseInt(x));
-        numMask = numMask.map(x => toBin(x));
-
-        let broadcastAddr = [];
-        for (let i = 0; i < ipNum.length; ++i) {
-            const cur = [];
-            broadcastAddr.push(cur);
-
-            const curIp = ipNum[i];
-            const curMask = numMask[i];
-            for (let j = 0; j < 8; ++j) {
-                if (curMask[j]) {
-                    cur.push(curIp[j]);
-                }
-                else {
-                    cur.push(1);
-                }
-            }
-        }
-
-        broadcastAddr = broadcastAddr.map(x => fromBin(x));
-        broadcastAddr = broadcastAddr.map(x => x.toString());
-        let broadcastStr = `${broadcastAddr[0]}.${broadcastAddr[1]}.${broadcastAddr[2]}.${broadcastAddr[3]}`;
-
-
-        const peers = {};
-        let keepChecking = true;
-        onPeerFound = addr => {
-            peers[addr.ip] = addr;
-        };
-
-        function check() {
-            if (!keepChecking) {
-                return;
-            }
-
-            client(JSON.stringify({ req: 'TCPPort?' }), broadcastStr);
-            setTimeout(check, 1000);
-        }
-        check();
-
-        const peer = await new Promise((resolve, reject) => {
-            let finish = false;
-            function updatePeers() {
-                if (finish) {
-                    return;
+                    setTimeout(lookupReq, 1000);
                 }
 
-                const options = [];
-                for (let k in peers) {
-                    const cur = peers[k];
-                    options.push({
-                        name: `${cur.pcName} - ${k}`,
-                        addr: cur
+                lookupReq();
+            });
+
+            let choosePeer = new Promise((resolve, reject) => {
+                let finish = false;
+                function updatePeers() {
+                    if (finish) {
+                        return;
+                    }
+
+                    const options = [];
+                    const p = peers();
+                    for (let k in p) {
+                        const cur = p[k];
+                        options.push({
+                            name: `${cur.pcName} - ${k}`,
+                            addr: cur
+                        });
+                    }
+                    choose(options).then(x => {
+                        finish = true;
+                        keepChecking = false;
+                        resolve(x);
                     });
+
+                    setTimeout(updatePeers, 2000);
                 }
-                choose(options).then(x => {
-                    finish = true;
-                    keepChecking = false;
-                    resolve(x);
-                });
 
-                setTimeout(updatePeers, 2000);
-            }
+                updatePeers();
+            });
 
-            updatePeers();
+            const choice = await choosePeer;
+            stopReqs = true;
+            await lookup;
+
+            destroySocket();
+
+            resolve(choice);
         });
 
+        console.log(peer);
+
+        return;
         onPeerFound = undefined;
 
         let peerAddr = peer.addr;
@@ -229,29 +191,7 @@ async function init() {
         tcpClient.destroy();
     });
 
-    const { initServer, initClient } = require('../tcpServer');
-    const tcpServer = await initServer(socket => {
-        socket.on('data', data => {
-            console.log(data.toString());
-        });
-
-        socket.on('close', () => {
-            console.log('closed');
-        });
-    });
-
-    const { initPeerServer, initPeerClient } = require('../udpserver');
-    function peerServer(message, info) {
-        const messageData = JSON.parse(message.toString());
-
-        if (messageData.req === 'TCPPort?') {
-            const res = JSON.stringify({
-                port: tcpServer.address().port,
-                pcName: pcName
-            });
-            server.send(res, info.port, info.address, (err) => { });
-        }
-    }
+    const { initPeerClient } = require('../udpserver');
 
     let onPeerFound = undefined;
     const client = initPeerClient(async (message, info) => {
@@ -270,11 +210,8 @@ async function init() {
     });
 
     panel.interface = {
-        getTCPServer: () => tcpServer,
-        startPeerServer: async () => {
-            await initPeerServer(peerServer);
-        },
-        getPeer: () => peerChosen
+        getPeer: () => peerChosen,
+        getPCName: () => pcName,
     };
 
     return panel;

@@ -1,13 +1,11 @@
 let _panel;
 
 const { render } = require('./renderHTML');
-const { choose } = require('./modal');
 const { flushPrefs } = require('../files');
 
 const fs = require('fs');
-const path = require('path');
 
-async function init() {
+function init() {
     const panel = getPanel();
     const dirButton = render('button');
 
@@ -25,29 +23,33 @@ async function init() {
 
     const prefs = document.prefs;
 
-    let isValidDir = await new Promise(async (resolve, reject) => {
+    let isValidDir = false;
 
-        if (!prefs.dir) {
-            resolve(false);
-            return;
-        }
+    async function checkValidDir() {
+        isValidDir = await new Promise(async (resolve, reject) => {
 
-        fs.exists(prefs.dir, exists => {
-            if (!exists) {
+            if (!prefs.dir) {
                 resolve(false);
+                return;
             }
 
-            fs.stat(prefs.dir, (err, stats) => {
-                resolve(stats.isDirectory());
+            fs.exists(prefs.dir, exists => {
+                if (!exists) {
+                    resolve(false);
+                }
+
+                fs.stat(prefs.dir, (err, stats) => {
+                    resolve(stats.isDirectory());
+                });
             });
         });
-    });
 
-    if (isValidDir) {
-        chosenDir = prefs.dir;
+        if (isValidDir) {
+            chosenDir = prefs.dir;
+        }
+        updateDir();
     }
-    updateDir();
-
+    checkValidDir();
 
     const { ipcRenderer } = require('electron');
     let selectDirCB = undefined;
@@ -80,7 +82,7 @@ async function init() {
     });
 
     async function updateButtonsVisibility() {
-        const mainMod = await app.modules.main();
+        const mainMod = await app.modules.main;
         mainMod.tagged.run_server.style.display = panel.tagged.is_server.checked ? '' : 'none';
         mainMod.tagged.download_files.style.display = panel.tagged.is_server.checked ? 'none' : '';
     }
