@@ -4,7 +4,6 @@ const { send } = require('process');
 
 let _resolve;
 const pipePr = new Promise((resolve, reject) => {
-	console.log('fwefewfw');
 	_resolve = resolve;
 });
 

@@ -23,16 +23,14 @@ async function hashFiles(rootDir, fileList, tracker) {
         });
 
         if (!exist) {
-            return new Promise((resolve, reject) => {
-                resolve({
-                    path: x,
-                    hash: '',
-                    fileSize: 0
-                });
-            });
-
             ++prog[0];
             tracker.progress(prog);
+
+            return {
+                path: x,
+                hash: '',
+                fileSize: 0
+            };
         }
 
         const req = {

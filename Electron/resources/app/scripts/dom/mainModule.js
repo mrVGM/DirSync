@@ -40,7 +40,7 @@ function init() {
 
             runServerButtonActive = false;
 
-            const { hashFiles, registerFiles } = require('../backend');
+            const { hashFiles, registerFiles, stop } = require('../backend');
             const { getFileList } = require('../files');
 
             const dir = dirModule.interface.getDir();
@@ -64,6 +64,11 @@ function init() {
 
             setHandler('records', json => {
                 send(hashed);
+            });
+
+            setHandler('stop', async json => {
+                await stop(json.fileId);
+                send({});
             });
         });
 
@@ -192,7 +197,7 @@ function init() {
 
                     const tracker = {
                         finished: () => {
-                            stop(f.id),
+                            tcpClient({ req: 'stop', fileId: f.id });
                             releaseSlot();
                             bar.element.remove();
 
