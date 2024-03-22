@@ -13,7 +13,7 @@ async function hashFiles(rootDir, fileList, tracker) {
 
     const prog = [0, fileList.length];
 
-    const tmp = fileList.map(async x => {
+    const tmp = fileList.map(async (x, index) => {
         const fullPath = path.join(rootDir, x.path);
 
         const exist = await new Promise((resolve, reject) => {
@@ -41,6 +41,7 @@ async function hashFiles(rootDir, fileList, tracker) {
         const pr = send(req);
         const res = await pr;
         res.path = x.path;
+        res.id = index;
         ++prog[0];
         tracker.progress(prog);
 
