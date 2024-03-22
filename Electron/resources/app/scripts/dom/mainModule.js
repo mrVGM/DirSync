@@ -57,13 +57,18 @@ function init() {
             await registerFiles(dir, fileList);
 
             const { startPeerServer, getTCPServer } = require('../peers');
-            await startPeerServer(netModule.interface.getPCName);
+            const fileServer = await startPeerServer(netModule.interface.getPCName);
+            
             log('Server running!');
 
             const { setHandler, send } = await getTCPServer();
 
             setHandler('records', json => {
                 send(hashed);
+            });
+
+            setHandler('fileServer', json => {
+                send(fileServer);
             });
 
             setHandler('stop', async json => {
@@ -97,6 +102,8 @@ function init() {
             const { initClient } = require('../tcpServer');
             const tcpClient = await initClient(peerAddr.ip, peerAddr.port);
 
+            const fileServer = await tcpClient({ req: 'fileServer' });
+            
             let fileList = await tcpClient({ req: 'records' });
 
             const path = require('path');
@@ -232,6 +239,7 @@ function init() {
                     downloadFile(
                         f.id,
                         peerAddr.ip,
+                        fileServer.port,
                         f.fileSize,
                         filePath,
                         tracker

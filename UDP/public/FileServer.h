@@ -39,7 +39,7 @@ namespace udp
 
 		void StartBucket(ull bucketID);
 		bool CheckBucket(ull bucketID);
-		short m_port = -1;
+		int m_port = -1;
 	public:
 		FileServerObject();
 		virtual ~FileServerObject();

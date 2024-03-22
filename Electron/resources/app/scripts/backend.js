@@ -97,13 +97,14 @@ async function checkFileProgress(fileId) {
     return res;
 }
 
-async function downloadFile(fileId, serverAddr, size, path, tracker) {
+async function downloadFile(fileId, serverAddr, serverPort, size, path, tracker) {
     const send = await getSendFunc();
     
     send({
         op: 'download_file',
         file_id: fileId,
         ip_addr: serverAddr,
+        port: serverPort,
         file_size: size,
         path: path
     }).then(() => {

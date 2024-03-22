@@ -123,11 +123,11 @@ void udp::FileServerObject::Init()
     }
 
     struct sockaddr_in serverAddr;
-    short port = 27015;
-
+    int serverAddrSize = sizeof(sockaddr_in);
+    
     // Bind the socket to any address and the specified port.
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(port);
+    serverAddr.sin_port = 0;
     // OR, you can do serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     serverAddr.sin_addr.s_addr = inet_addr("0.0.0.0");
 
@@ -136,7 +136,9 @@ void udp::FileServerObject::Init()
         return;
     }
 
-    m_port = htons(serverAddr.sin_port);
+    getsockname(m_socket, reinterpret_cast<sockaddr*>(&serverAddr), &serverAddrSize);
+
+    m_port = static_cast<unsigned short>(htons(serverAddr.sin_port));
 
     m_serverJS->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
         while (true)

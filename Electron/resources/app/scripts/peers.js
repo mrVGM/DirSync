@@ -49,7 +49,6 @@ async function startPeerServer(getPCName) {
 
 
     const fileServer = await runUDPServer();
-    console.log(fileServer);
 
     function peerServer(message, info) {
         const messageData = JSON.parse(message.toString());
@@ -64,6 +63,8 @@ async function startPeerServer(getPCName) {
     }
 
     const server = await initPeerServer(peerServer);
+
+    return fileServer;
 }
 
 function findPeers(net) {

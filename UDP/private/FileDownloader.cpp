@@ -40,6 +40,7 @@ udp::FileDownloaderMeta::FileDownloaderMeta() :
 }
 
 udp::FileDownloaderObject::FileDownloaderObject(
+    int serverPort,
     const std::string& serverIP,
     unsigned int fileId,
     ull fileSize,
@@ -49,6 +50,7 @@ udp::FileDownloaderObject::FileDownloaderObject(
     BaseObject(FileDownloaderMeta::GetInstance()),
     m_bucket(0),
     m_fileId(fileId),
+    m_serverPort(serverPort),
     m_serverIP(serverIP),
     m_fileSize(fileSize),
     m_path(path),
@@ -226,7 +228,7 @@ void udp::FileDownloaderObject::Init()
 
     m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
         struct sockaddr_in serverAddr;
-        short port = 27015;
+        short port = static_cast<short>(m_serverPort);
         const char* local_host = m_serverIP.c_str();
         serverAddr.sin_family = AF_INET;
         serverAddr.sin_port = htons(port);

@@ -250,6 +250,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 	{
 		unsigned int fileId = std::get<json_parser::JSONNumber>(map.find("file_id")->second.m_payload).ToInt();
 		std::string ipAddr = std::get<std::string>(map.find("ip_addr")->second.m_payload);
+		int port = std::get<json_parser::JSONNumber>(map.find("port")->second.m_payload).ToInt();
 		ull fileSize = std::get<json_parser::JSONNumber>(map.find("file_size")->second.m_payload).ToInt();
 		std::string path = std::get<std::string>(map.find("path")->second.m_payload);
 
@@ -262,6 +263,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 			});
 
 			udp::FileDownloaderObject* downloader = new udp::FileDownloaderObject(
+				port,
 				ipAddr,
 				fileId,
 				fileSize,

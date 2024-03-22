@@ -33,9 +33,11 @@ namespace udp
 		ull m_received = 0;
 		std::string m_path;
 		std::string m_serverIP;
+		int m_serverPort = -1;
 		jobs::Job* m_done = nullptr;
 
 		FileDownloaderObject(
+			int serverPort,
 			const std::string& serverIP,
 			unsigned int fileId,
 			ull fileSize,
