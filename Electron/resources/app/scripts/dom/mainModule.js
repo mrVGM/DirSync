@@ -12,6 +12,7 @@ function init() {
 
     panel.tagged.overal_progress.appendChild(overalProgress.element);
 
+    overalProgress.tagged.bar.style.width = `0%`;
     function updateOveralProgress(progress) {
         overalProgress.tagged.bar.style.width = `${100 * progress[0] / progress[1]}%`;
         simpleLabel.tagged.label.innerHTML = `[${progress[0]}/${progress[1]}]`;
@@ -69,18 +70,12 @@ function init() {
         const dirModule = await app.modules.dir;
         const netModule = await app.modules.net;
 
-        let runServerButtonActive = true;
         panel.tagged.run_server.addEventListener('click', async () => {
             const unlockModal = await app.locks.modal();
             if (!unlockModal) {
                 return;
             }
             unlockModal();
-
-
-            if (!runServerButtonActive) {
-                return;
-            }
 
             if (!dirModule.interface.isValidDirChosen()) {
                 const notification = await app.modules.notification;
@@ -92,8 +87,6 @@ function init() {
 
             await app.locks.dir();
             await app.locks.running();
-
-            runServerButtonActive = false;
 
             const { hashFiles, registerFiles, stop } = require('../backend');
             const { getFileList } = require('../files');
@@ -171,18 +164,12 @@ function init() {
             });
         });
 
-        let downloadFilesButtonActive = true;
         panel.tagged.download_files.addEventListener('click', async () => {
             const unlockModal = await app.locks.modal();
             if (!unlockModal) {
                 return;
             }
             unlockModal();
-
-
-            if (!downloadFilesButtonActive) {
-                return;
-            }
 
             const peer = netModule.interface.getPeer();
             if (!peer) {

@@ -93,9 +93,8 @@ function init() {
         }
 
         prefs.dir = val;
-        chosenDir = val;
-        isValidDir = true;
-        updateDir();
+        await checkValidDir();
+
         flushPrefs(prefs);
     };
 
