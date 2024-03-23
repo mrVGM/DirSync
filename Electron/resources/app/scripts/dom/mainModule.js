@@ -7,12 +7,14 @@ function init() {
 
     const overalProgress = render('bar');
     overalProgress.element.style.width = '100%';
+    const simpleLabel = render('simple_bar_label');
+    overalProgress.tagged.label.appendChild(simpleLabel.element);
 
     panel.tagged.overal_progress.appendChild(overalProgress.element);
 
     function updateOveralProgress(progress) {
         overalProgress.tagged.bar.style.width = `${100 * progress[0] / progress[1]}%`;
-        overalProgress.tagged.label.innerHTML = `[${progress[0]}/${progress[1]}]`;
+        simpleLabel.tagged.label.innerHTML = `[${progress[0]}/${progress[1]}]`;
     }
 
     function log(str) {
@@ -184,6 +186,9 @@ function init() {
                     const bar = render('bar');
                     panel.tagged.bar_space.appendChild(bar.element);
 
+                    const label = render('download_file_label');
+                    bar.tagged.label.appendChild(label.element);
+
                     function formatBytes(cnt) {
                         let suf = ['B', 'KB', 'MB', 'GB'];
 
@@ -228,11 +233,14 @@ function init() {
                             if (samples.length >= 2) {
                                 const first = samples[0];
                                 const last = samples[samples.length - 1];
-                                speed = `${formatBytes(1000 * (last.bytes - first.bytes) / (last.time - first.time))}`;
+                                speed = `${formatBytes(1000 * (last.bytes - first.bytes) / (last.time - first.time))}/s`;
                             }
 
                             bar.tagged.bar.style.width = `${100 * p.progress[0] / p.progress[1]}%`;
-                            bar.tagged.label.innerHTML = `${f.path}\t\t[${formatBytes(p.progress[0])}/${formatBytes(p.progress[1])}]\t\t${speed}/s`;
+
+                            label.tagged.name.innerHTML = f.path;
+                            label.tagged.file_size.innerHTML = `[${formatBytes(p.progress[0])}/${formatBytes(p.progress[1])}]`;
+                            label.tagged.speed.innerHTML = `${speed}`;
                         }
                     };
 

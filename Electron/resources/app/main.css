@@ -45,3 +45,7 @@ html, body {
 .option:hover {
     background-color: rgb(187,187,187);
 }
+
+p {
+    font-size: 12px;
+}
