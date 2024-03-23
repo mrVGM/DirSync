@@ -58,7 +58,18 @@ function init() {
         selectDirCB = undefined;
     });
 
-    dirButton.element.addEventListener('click',  async () => {
+    dirButton.element.addEventListener('click', async () => {
+        const unlockModal = await app.locks.modal();
+        if (!unlockModal) {
+            return;
+        }
+
+        await selectDir();
+
+        unlockModal();
+    });
+
+    async function selectDir() {
         if (selectDirCB) {
             return;
         }
@@ -79,7 +90,7 @@ function init() {
         isValidDir = true;
         updateDir();
         flushPrefs(prefs);
-    });
+    };
 
     async function updateButtonsVisibility() {
         const mainMod = await app.modules.main;

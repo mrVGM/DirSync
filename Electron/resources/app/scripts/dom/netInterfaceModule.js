@@ -107,11 +107,20 @@ function init() {
         updateNetOfChoice();
     }
 
-    interfaceButton.element.addEventListener('click', chooseNet);
+    interfaceButton.element.addEventListener('click', async () => {
+        const unlockModal = await app.locks.modal();
+        if (!unlockModal) {
+            return;
+        }
+
+        await chooseNet();
+
+        unlockModal();
+    });
 
     let peerChosen;
 
-    pairButton.element.addEventListener('click', async () => {
+    async function findServer() {
         if (!netOfChoice) {
             alert('Please choose a network interface!');
             return;
@@ -182,6 +191,17 @@ function init() {
         pairButton.tagged.name.innerHTML = peer.name;
 
         return;
+    }
+
+    pairButton.element.addEventListener('click', async () => {
+        const unlockModal = await app.locks.modal();
+        if (!unlockModal) {
+            return;
+        }
+
+        await findServer();
+
+        unlockModal();
     });
 
     const { initPeerClient } = require('../udpserver');
