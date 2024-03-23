@@ -76,7 +76,8 @@ function init() {
             }
 
             if (!dirModule.interface.isValidDirChosen()) {
-                alert('Please choose a valid directory!');
+                const notification = await app.modules.notification;
+                notification.interface.show('Please choose a valid directory!');
                 return;
             }
 
@@ -166,12 +167,14 @@ function init() {
 
             const peer = netModule.interface.getPeer();
             if (!peer) {
-                alert('Find a server, please!');
+                const notification = await app.modules.notification;
+                notification.interface.show('Find a server, please!');
                 return;
             }
 
             if (!dirModule.interface.isValidDirChosen()) {
-                alert('Please choose a valid directory!');
+                const notification = await app.modules.notification;
+                notification.interface.show('Please choose a valid directory!');
                 return;
             }
 

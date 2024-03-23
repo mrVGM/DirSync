@@ -74,11 +74,20 @@
                     setTimeout(() => {
                         resolve(init());
                     });
+                }),
+                notification: new Promise((resolve, reject) => {
+                    const { init } = require('./scripts/dom/notificationModule');
+                    setTimeout(() => {
+                        resolve(init());
+                    });
                 })
             };
+
+            
         }
 
         test();
+
     </script>
 </body>
 </html>

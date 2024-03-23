@@ -126,7 +126,8 @@ function init() {
 
     async function findServer() {
         if (!netOfChoice) {
-            alert('Please choose a network interface!');
+            const notification = await app.modules.notification;
+            notification.interface.show('Please choose a network interface!');
             return;
         }
 

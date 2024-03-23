@@ -50,6 +50,21 @@ p {
     font-size: 12px;
 }
 
+.notification {
+    user-select: none;
+    font-size: 32px;
+    text-align: center;
+    text-wrap: wrap;
+    overflow-wrap: normal;
+}
+
+.notification-panel {
+    background-color: rgb(204,204,204);
+    border: solid;
+    opacity: 1;
+    transition: opacity 2s ease-in-out;
+}
+
 
 /* The switch - the box around the slider */
 .switch {
