@@ -23,7 +23,7 @@ function createWindow() {
         webPreferences: {
             contextIsolation: false,
             nodeIntegration: true,
-            devTools: true
+            devTools: false
         }
     });
 

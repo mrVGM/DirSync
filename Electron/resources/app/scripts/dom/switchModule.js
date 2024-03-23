@@ -23,6 +23,23 @@ function init() {
     updateMode();
 
     panel.tagged.input.addEventListener('change', async () => {
+        const unlockModal = await app.locks.modal();
+        if (!unlockModal) {
+            panel.tagged.input.checked = !panel.tagged.input.checked;
+            return;
+        }
+        unlockModal();
+
+        const unlockRunning = await app.locks.running();
+        if (!unlockRunning) {
+            panel.tagged.input.checked = !panel.tagged.input.checked;
+
+            const notification = await app.modules.notification;
+            notification.interface.show('File transfer has already started!');
+            return;
+        }
+        unlockRunning();
+
         updateMode();
     });
 

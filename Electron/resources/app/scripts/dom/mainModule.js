@@ -71,6 +71,13 @@ function init() {
 
         let runServerButtonActive = true;
         panel.tagged.run_server.addEventListener('click', async () => {
+            const unlockModal = await app.locks.modal();
+            if (!unlockModal) {
+                return;
+            }
+            unlockModal();
+
+
             if (!runServerButtonActive) {
                 return;
             }
@@ -80,6 +87,11 @@ function init() {
                 notification.interface.show('Please choose a valid directory!');
                 return;
             }
+
+            panel.tagged.run_server.style.display = 'none';
+
+            await app.locks.dir();
+            await app.locks.running();
 
             runServerButtonActive = false;
 
@@ -161,6 +173,13 @@ function init() {
 
         let downloadFilesButtonActive = true;
         panel.tagged.download_files.addEventListener('click', async () => {
+            const unlockModal = await app.locks.modal();
+            if (!unlockModal) {
+                return;
+            }
+            unlockModal();
+
+
             if (!downloadFilesButtonActive) {
                 return;
             }
@@ -177,6 +196,11 @@ function init() {
                 notification.interface.show('Please choose a valid directory!');
                 return;
             }
+
+            panel.tagged.download_files.style.display = 'none';
+
+            await app.locks.dir();
+            await app.locks.running();
 
             const { hashFiles, downloadFile, stop } = require('../backend');
 

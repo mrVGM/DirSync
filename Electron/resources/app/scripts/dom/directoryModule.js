@@ -70,9 +70,16 @@ function init() {
     });
 
     async function selectDir() {
-        if (selectDirCB) {
+
+        const unlockDir = await app.locks.dir();
+        if (!unlockDir) {
+            const notification = await app.modules.notification;
+            notification.interface.show('Directory already selected!');
             return;
         }
+        unlockDir();
+
+
         let val = chosenDir;
         const dir = await new Promise((resolve, reject) => {
             selectDirCB = dir => {

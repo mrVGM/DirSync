@@ -91,6 +91,15 @@ function init() {
     updateNetOfChoice();
 
     async function chooseNet() {
+        const unlockRunning = await app.locks.running();
+        if (!unlockRunning) {
+            const notification = await app.modules.notification;
+            notification.interface.show('File transfer has already started!');
+            return;
+        }
+        unlockRunning();
+
+
         const netArray = [];
         for (let k in nets) {
             netArray.push({
@@ -125,6 +134,14 @@ function init() {
     let peerChosen;
 
     async function findServer() {
+        const unlockRunning = await app.locks.running();
+        if (!unlockRunning) {
+            const notification = await app.modules.notification;
+            notification.interface.show('File transfer has already started!');
+            return;
+        }
+        unlockRunning();
+
         if (!netOfChoice) {
             const notification = await app.modules.notification;
             notification.interface.show('Please choose a network interface!');
