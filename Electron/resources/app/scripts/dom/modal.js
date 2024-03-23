@@ -1,25 +1,45 @@
 let _panel;
+let _cancelButton;
+let _handler;
 
 const { render } = require('./renderHTML');
 
 function getPanel() {
     if (!_panel) {
         _panel = render('modal');
-        document.getElementById('main').appendChild(_panel.element);
+
+        const button = render('button');
+        _cancelButton = button;
+        _panel.tagged.cancel_button.appendChild(button.element);
+
+        button.tagged.name.innerHTML = 'Cancel';
+        button.element.addEventListener('click', () => {
+            if (_handler) {
+                _handler();
+            }
+            _handler = undefined;
+        });
     }
     
     return _panel;
 }
 
-function setVisible(visible) {
+async function setVisible(visible) {
     const panel = getPanel();
-    panel.element.style.display = visible ? 'block' : 'none';
+    let mainMod = await app.modules.main;
+
+    if (visible) {
+        mainMod.tagged.bar_space.appendChild(panel.element);
+    }
+    else {
+        panel.element.remove();
+    }
 }
 
 async function choose(options, title) {
     const panel = getPanel();
 
-    setVisible(true);
+    await setVisible(true);
 
     panel.tagged.options_space.innerHTML = '';
     if (title) {
@@ -27,6 +47,10 @@ async function choose(options, title) {
     }
 
     const chosen = await new Promise((resolve, reject) => {
+        _handler = () => {
+            resolve();
+        };
+
         for (let i = 0; i < options.length; ++i) {
             const cur = options[i];
             const item = render('option');
@@ -38,7 +62,7 @@ async function choose(options, title) {
         }
     });
 
-    setVisible(false);
+    await setVisible(false);
 
     return chosen;
 }

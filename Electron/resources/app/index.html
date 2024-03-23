@@ -41,7 +41,6 @@
                                 return;
                             }
 
-                            console.log('r43254365435');
                             modalLocked = true;
                             resolve(() => {
                                 modalLocked = false;
@@ -54,6 +53,12 @@
             app.modules = {
                 main: new Promise((resolve, reject) => {
                     const { init } = require('./scripts/dom/mainModule');
+                    setTimeout(() => {
+                        resolve(init());
+                    });
+                }),
+                modeSwitch: new Promise((resolve, reject) => {
+                    const { init } = require('./scripts/dom/switchModule');
                     setTimeout(() => {
                         resolve(init());
                     });

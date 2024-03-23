@@ -99,6 +99,10 @@ function init() {
         }
         const choice = await choose(netArray, 'Choose network interface');
 
+        if (!choice) {
+            return;
+        }
+
         netOfChoice = choice.name;
 
         prefs.netInterface = choice.name;
@@ -186,9 +190,10 @@ function init() {
         });
 
         peerChosen = peer;
-        console.log(peer);
 
-        pairButton.tagged.name.innerHTML = peer.name;
+        if (peer) {
+            pairButton.tagged.name.innerHTML = peer.name;
+        }
 
         return;
     }
@@ -225,6 +230,10 @@ function init() {
     panel.interface = {
         getPeer: () => peerChosen,
         getPCName: () => pcName,
+        changeMode: isServer => {
+            panel.tagged.buttons.style.display = isServer ? 'none' : 'flex';
+            panel.tagged.pc_name.style.display = isServer ? '' : 'none';
+        }
     };
 
     return panel;

@@ -92,21 +92,9 @@ function init() {
         flushPrefs(prefs);
     };
 
-    async function updateButtonsVisibility() {
-        const mainMod = await app.modules.main;
-        mainMod.tagged.run_server.style.display = panel.tagged.is_server.checked ? '' : 'none';
-        mainMod.tagged.download_files.style.display = panel.tagged.is_server.checked ? 'none' : '';
-    }
-
-    updateButtonsVisibility();
-    
-    panel.tagged.is_server.addEventListener('change', async () => {
-        await updateButtonsVisibility();
-    });
-
     panel.interface = {
         isValidDirChosen: () => isValidDir,
-        getDir: () => chosenDir
+        getDir: () => chosenDir,
     };
 
     return panel;

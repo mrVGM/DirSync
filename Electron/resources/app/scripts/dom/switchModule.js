@@ -1,0 +1,44 @@
+let _panel;
+
+const { render } = require('./renderHTML');
+
+function init() {
+    const panel = getPanel();
+
+    panel.tagged.input.checked = true;
+
+    async function updateMode() {
+        let checked = panel.tagged.input.checked;
+        panel.tagged.mode.innerHTML = checked ? 'Server Mode' : 'Client Mode';
+
+        const mainMod = await app.modules.main;
+        const netMod = await app.modules.net;
+
+        mainMod.tagged.run_server.style.display = checked ? '' : 'none';
+        mainMod.tagged.download_files.style.display = checked ? 'none' : '';
+
+        netMod.interface.changeMode(checked);
+    }
+
+    updateMode();
+
+    panel.tagged.input.addEventListener('change', async () => {
+        updateMode();
+    });
+
+    panel.interface = {};
+
+    return panel;
+}
+
+function getPanel() {
+    if (!_panel) {
+        _panel = render('switch');
+        document.getElementById('main').appendChild(_panel.element);
+    }
+    
+    return _panel;
+}
+
+
+exports.init = init;
