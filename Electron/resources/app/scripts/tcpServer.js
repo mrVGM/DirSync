@@ -19,23 +19,49 @@ async function initClient(address, port) {
 		});
 	});
 
+	const sendReqs = [];
 
 	let handler;
 	client.on('data', function (data) {
 		handler(JSON.parse(data.toString()));
+		handler = undefined;
 	});
 
 	client.on('close', function () {
 		console.log('Connection closed');
 	});
 
-	return json => new Promise((resolve, reject) => {
-		handler = message => {
-			handler = undefined;
-			resolve(message);
-		};
-		client.write(JSON.stringify(json));
-	});
+	function _send(json) {
+		return new Promise((resolve, reject) => {
+			handler = message => {
+				resolve(message);
+			};
+			client.write(JSON.stringify(json));
+		});
+	}
+
+	function send(json) {
+		return new Promise(async (resolve, reject) => {
+			if (handler) {
+				sendReqs.push(async () => {
+					const res = await _send(json);
+					resolve(res);
+				});
+
+				return;
+			}
+
+			const res = await _send(json);
+			resolve(res);
+
+			if (sendReqs.length > 0) {
+				const req = sendReqs.shift();
+				req();
+			}
+		});
+	}
+
+	return send;
 }
 
 exports.initServer = initServer;

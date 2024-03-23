@@ -25,6 +25,46 @@ function init() {
         infoPanel.appendChild(div);
     }
 
+    function createProgressBar() {
+        const bar = render('bar');
+        panel.tagged.bar_space.appendChild(bar.element);
+
+        const label = render('download_file_label');
+        bar.tagged.label.appendChild(label.element);
+
+        function formatBytes(cnt) {
+            let suf = ['B', 'KB', 'MB', 'GB'];
+
+            let index = 0;
+            for (let i = 0; i < suf.length; ++i) {
+                index = i;
+                if (cnt < 1024) {
+                    break;
+                }
+                cnt /= 1024;
+            }
+
+            return `${Math.round(cnt * 100) / 100}${suf[index]}`;
+        }
+
+        function setProgress(name, progress, speed) {
+            bar.tagged.bar.style.width = `${100 * progress[0] / progress[1]}%`;
+
+            label.tagged.name.innerHTML = name;
+            label.tagged.file_size.innerHTML = `[${formatBytes(progress[0])}/${formatBytes(progress[1])}]`;
+            label.tagged.speed.innerHTML = `${formatBytes(speed)}/s`;
+        }
+
+        function remove() {
+            bar.element.remove();
+        }
+
+        return {
+            setProgress,
+            remove
+        }
+    }
+
     async function initButtons() {
         const dirModule = await app.modules.dir;
         const netModule = await app.modules.net;
@@ -75,7 +115,46 @@ function init() {
 
             setHandler('stop', async json => {
                 await stop(json.fileId);
-                send({});
+                send({ res: 'bucket_stopped'});
+            });
+
+            const bars = {};
+
+            setHandler('progress', async json => {
+                updateOveralProgress(json.overal);
+
+                if (json.overal[0] >= json.overal[1]) {
+                    send({ res: 'stop' });
+                    for (let k in bars) {
+                        bars[k].remove();
+                        delete bars[k];
+                    }
+                    return;
+                }
+
+                const toDelete = [];
+                for (let k in bars) {
+                    if (!json.individual[k]) {
+                        toDelete.push(k);
+                    }
+                }
+                toDelete.forEach(k => {
+                    bars[k].remove();
+                    delete bars[k];
+                });
+
+                for (let k in json.individual) {
+                    let bar = bars[k];
+                    if (!bar) {
+                        bar = createProgressBar();
+                        bars[k] = bar;
+                    }
+
+                    const p = json.individual[k];
+                    bar.setProgress(fileList[p.id].path, p.progress, p.speed);
+                }
+
+                send({ res: 'more_progress'});
             });
         });
 
@@ -109,7 +188,7 @@ function init() {
             let fileList = await tcpClient({ req: 'records' });
 
             const path = require('path');
-            const rootDir = dirModule.interface.getDir();
+            const rootDir = path.join(dirModule.interface.getDir(), '../dst');
 
             const tracker = {
                 progress: p => {
@@ -169,6 +248,21 @@ function init() {
             const { writeFile, createFolders } = require('../files');
 
             const prog = [0, fileList.length];
+
+            const filesProgress = {};
+            async function updatingServerWithProgress() {
+                const resp = await tcpClient({
+                    req: 'progress',
+                    overal: prog,
+                    individual: filesProgress
+                });
+
+                if (resp.res === 'more_progress') {
+                    setTimeout(updatingServerWithProgress, 100);
+                }
+            }
+            updatingServerWithProgress();
+
             updateOveralProgress(prog);
             const downloads = fileList.map(async f => {
                 const filePath = path.join(rootDir, f.path);
@@ -183,35 +277,17 @@ function init() {
 
                 log(`Starting to download ${f.path}`);
                 await new Promise((resolve, reject) => {
-                    const bar = render('bar');
-                    panel.tagged.bar_space.appendChild(bar.element);
-
-                    const label = render('download_file_label');
-                    bar.tagged.label.appendChild(label.element);
-
-                    function formatBytes(cnt) {
-                        let suf = ['B', 'KB', 'MB', 'GB'];
-
-                        let index = 0;
-                        for (let i = 0; i < suf.length; ++i) {
-                            index = i;
-                            if (cnt < 1024) {
-                                break; 
-                            }
-                            cnt /= 1024;
-                        }
-
-                        return `${Math.round(cnt * 100) / 100}${suf[index]}`;
-                    }
+                    const bar = createProgressBar();
 
                     const maxSamples = 10;
                     let samples = [];
 
                     const tracker = {
-                        finished: () => {
-                            tcpClient({ req: 'stop', fileId: f.id });
+                        finished: async () => {
+                            await tcpClient({ req: 'stop', fileId: f.id });
                             releaseSlot();
-                            bar.element.remove();
+                            bar.remove();
+                            delete filesProgress[f.id];
 
                             ++prog[0];
                             updateOveralProgress(prog);
@@ -220,7 +296,7 @@ function init() {
                             resolve();
                         },
                         progress: p => {
-                            let speed = '';
+                            let speed = 0;
                             const now = Date.now();
                             samples.push({
                                 bytes: p.progress[0],
@@ -233,14 +309,15 @@ function init() {
                             if (samples.length >= 2) {
                                 const first = samples[0];
                                 const last = samples[samples.length - 1];
-                                speed = `${formatBytes(1000 * (last.bytes - first.bytes) / (last.time - first.time))}/s`;
+                                speed = 1000 * (last.bytes - first.bytes) / (last.time - first.time);
                             }
 
-                            bar.tagged.bar.style.width = `${100 * p.progress[0] / p.progress[1]}%`;
-
-                            label.tagged.name.innerHTML = f.path;
-                            label.tagged.file_size.innerHTML = `[${formatBytes(p.progress[0])}/${formatBytes(p.progress[1])}]`;
-                            label.tagged.speed.innerHTML = `${speed}`;
+                            bar.setProgress(f.path, p.progress, speed);
+                            filesProgress[f.id] = {
+                                id: f.id,
+                                progress: p.progress,
+                                speed: speed
+                            };
                         }
                     };
 
