@@ -101,6 +101,7 @@ function init() {
                 finished: () => {}
             };
             const hashed = await hashFiles(dir, fileList, tracker);
+            console.log(hashed);
             
             await registerFiles(dir, fileList);
 
@@ -112,7 +113,12 @@ function init() {
             const { setHandler, send } = await getTCPServer();
 
             setHandler('records', json => {
-                send(hashed);
+                if (!json.slice) {
+                    send({ numFiles: hashed.length });
+                    return;
+                }
+
+                send(hashed.slice(json.slice[0], json.slice[1]));
             });
 
             setHandler('fileServer', json => {
@@ -198,8 +204,29 @@ function init() {
             const tcpClient = await initClient(peerAddr.ip, peerAddr.port);
 
             const fileServer = await tcpClient({ req: 'fileServer' });
-            
-            let fileList = await tcpClient({ req: 'records' });
+
+            async function fetchFileList() {
+                const res = await tcpClient({ req: 'records' });
+                let numFiles = res.numFiles;
+
+                let fileList = [];
+
+                const step = 50;
+                for (let i = 0; i < numFiles; i += step) {
+                    const tmp = await tcpClient({
+                        req: 'records',
+                        slice: [i, Math.min(i + step, numFiles)]
+                    });
+
+                    fileList = fileList.concat(tmp);
+                }
+
+                return fileList;
+            }
+
+            let fileList = await fetchFileList();
+            console.log(fileList);
+
 
             const path = require('path');
             const rootDir = dirModule.interface.getDir();
