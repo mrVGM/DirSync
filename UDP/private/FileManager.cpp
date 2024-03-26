@@ -122,32 +122,75 @@ bool udp::FileEntry::GetKB(KB& outKB, ull offset)
 		);
 	}
 
-	if (!m_fileChunk)
-	{
-		m_fileChunk = new FileChunk();
+	auto getNextChunk = [&]() {
+		if (m_fileChunks.empty())
+		{
+			FileChunk* c = new FileChunk();
+			c->m_offsetKB = 0;
+			DWORD read;
+			ReadFile(
+				m_fHandle,
+				c->m_data,
+				FileChunk::m_chunkSizeInKBs * sizeof(KB),
+				&read,
+				NULL
+			);
+			m_fileChunks.push_back(c);
+			return c;
+		}
+
+		if (m_fileChunks.size() < m_maxLoadedChunks)
+		{
+			FileChunk* c = new FileChunk();
+			c->m_offsetKB = m_fileChunks.back()->m_offsetKB + FileChunk::m_chunkSizeInKBs;
+			DWORD read;
+			ReadFile(
+				m_fHandle,
+				c->m_data,
+				FileChunk::m_chunkSizeInKBs * sizeof(KB),
+				&read,
+				NULL
+			);
+			m_fileChunks.push_back(c);
+			return c;
+		}
+
+		FileChunk* c = m_fileChunks.front();
+		m_fileChunks.erase(m_fileChunks.begin());
+		c->m_offsetKB = m_fileChunks.back()->m_offsetKB + FileChunk::m_chunkSizeInKBs;
 		DWORD read;
 		ReadFile(
 			m_fHandle,
-			m_fileChunk->m_data,
+			c->m_data,
 			FileChunk::m_chunkSizeInKBs * sizeof(KB),
 			&read,
 			NULL
 		);
-	}
+		m_fileChunks.push_back(c);
+
+		return c;
+	};
 
 	KB tmp;
-	FileChunk::GetKBResult res = FileChunk::GetKBResult::ToTheLeft;
-	while (FileChunk::GetKBResult::ToTheRight == (res = m_fileChunk->GetKB(tmp, offset)))
+	for (auto it = m_fileChunks.begin(); it != m_fileChunks.end(); ++it)
 	{
-		DWORD read;
-		ReadFile(
-			m_fHandle,
-			m_fileChunk->m_data,
-			FileChunk::m_chunkSizeInKBs * sizeof(KB),
-			&read,
-			NULL
-		);
-		m_fileChunk->m_offsetKB += FileChunk::m_chunkSizeInKBs;
+		if (FileChunk::GetKBResult::ToTheLeft == (*it)->GetKB(tmp, offset))
+		{
+			return false;
+		}
+
+		if (FileChunk::GetKBResult::OK == (*it)->GetKB(tmp, offset))
+		{
+			outKB = tmp;
+			return true;
+		}
+	}
+
+	FileChunk::GetKBResult res = FileChunk::GetKBResult::ToTheLeft;
+	FileChunk* c = getNextChunk();
+	while (FileChunk::GetKBResult::ToTheRight == (res = c->GetKB(tmp, offset)))
+	{
+		c = getNextChunk();
 	}
 
 	if (res != FileChunk::GetKBResult::OK)
@@ -166,11 +209,10 @@ void udp::FileEntry::UnloadData()
 		CloseHandle(m_fHandle);
 	}
 
-	if (m_fileChunk)
+	for (auto it = m_fileChunks.begin(); it != m_fileChunks.end(); ++it)
 	{
-		delete m_fileChunk;
+		delete *it;
 	}
 
 	m_fHandle = nullptr;
-	m_fileChunk = nullptr;
 }

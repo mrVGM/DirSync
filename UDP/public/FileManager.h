@@ -38,13 +38,14 @@ namespace udp
 		std::mutex m_getDataMutex;
 
 		void Init(int id, const std::string& path);
+		int m_maxLoadedChunks = 4;
 
 	public:
 		int m_id = -1;
 		std::string m_path;
 
 		void* m_fHandle = nullptr;
-		FileChunk* m_fileChunk = nullptr;
+		std::list<FileChunk*> m_fileChunks;
 		
 		FileEntry(int id, const std::string& path);
 		~FileEntry();
