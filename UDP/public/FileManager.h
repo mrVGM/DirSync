@@ -38,7 +38,7 @@ namespace udp
 		std::mutex m_getDataMutex;
 
 		void Init(int id, const std::string& path);
-		int m_maxLoadedChunks = 4;
+		int m_maxLoadedChunks = 1;
 
 	public:
 		int m_id = -1;
@@ -47,7 +47,7 @@ namespace udp
 		void* m_fHandle = nullptr;
 		std::list<FileChunk*> m_fileChunks;
 		
-		FileEntry(int id, const std::string& path);
+		FileEntry(int id, const std::string& path, int maxLoadedChunks);
 		~FileEntry();
 
 		bool GetKB(KB& outKB, ull offset);
@@ -71,7 +71,7 @@ namespace udp
 		FileManagerObject();
 		virtual ~FileManagerObject();
 
-		FileEntry& RegisterFile(int id, const std::string& path);
+		FileEntry& RegisterFile(int id, const std::string& path, int maxLoadedChunks);
 		FileEntry* GetFile(int id);
 	};
 }

@@ -65,7 +65,8 @@ async function registerFiles(rootDir, fileList) {
         const req = {
             op: 'set_file_id',
             file: path.join(rootDir, x.path),
-            file_id: index
+            file_id: index,
+            max_loaded_chunks: document.sysConfig.maxFileChunksLoaded,
         };
 
         const pr = send(req);
@@ -106,7 +107,10 @@ async function downloadFile(fileId, serverAddr, serverPort, size, path, tracker)
         ip_addr: serverAddr,
         port: serverPort,
         file_size: size,
-        path: path
+        path: path,
+        num_workers: document.sysConfig.downloadChunks,
+        download_window: document.sysConfig.maxFileChunksLoaded,
+        ping_delay: document.sysConfig.pingTime
     }).then(() => {
         finished = true;
         tracker.finished();

@@ -45,6 +45,9 @@ udp::FileDownloaderObject::FileDownloaderObject(
     unsigned int fileId,
     ull fileSize,
     const std::string& path,
+    int numWorkers,
+    int downloadWindow,
+    int pingDelay,
     jobs::Job* done) :
 
     BaseObject(FileDownloaderMeta::GetInstance()),
@@ -54,6 +57,9 @@ udp::FileDownloaderObject::FileDownloaderObject(
     m_serverIP(serverIP),
     m_fileSize(fileSize),
     m_path(path),
+    m_numWorkers(numWorkers),
+    m_downloadWindow(downloadWindow),
+    m_pingDelay(pingDelay),
     m_done(done)
 {
     if (!m_js)
@@ -172,9 +178,6 @@ void udp::FileDownloaderObject::Init()
     {
         FileDownloaderObject& m_downloader;
 
-        const int m_numWorkers = 2;
-        const int m_maxWindow = 4;
-
         ull m_written = 0;
         ull m_covered = 0;
         ull m_passedToWriter = 0;
@@ -196,7 +199,7 @@ void udp::FileDownloaderObject::Init()
                 return false;
             }
 
-            if (m_workers.size() >= m_numWorkers)
+            if (m_workers.size() >= m_downloader.m_numWorkers)
             {
                 return false;
             }
@@ -212,7 +215,7 @@ void udp::FileDownloaderObject::Init()
             ull windowStart = m_workers.front()->m_offset;
             ull winSize = (m_covered - windowStart) / FileChunk::m_chunkSizeInKBs;
 
-            if (winSize >= m_maxWindow)
+            if (winSize >= m_downloader.m_downloadWindow)
             {
                 return false;
             }
@@ -228,7 +231,7 @@ void udp::FileDownloaderObject::Init()
         {
             ull numKB = GetKBSize();
 
-            for (int i = 0; i < m_numWorkers; ++i)
+            for (int i = 0; i < m_downloader.m_numWorkers; ++i)
             {
                 if (!TryCreateWorker())
                 {
@@ -414,7 +417,7 @@ void udp::FileDownloaderObject::Init()
                     sizeof(sockaddr_in));
             }
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(std::chrono::milliseconds(m_pingDelay));
         }
 
         jobDone();

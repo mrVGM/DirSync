@@ -16,7 +16,7 @@ namespace
 void jobs::Boot()
 {
 	m_main = new JobSystem(MainJobSystemMeta::GetInstance(), 1);
-	m_async = new JobSystem(AsyncJobSystemMeta::GetInstance(), 5);
+	m_async = new JobSystem(AsyncJobSystemMeta::GetInstance(), 25);
 
 	RunSync(Job::CreateFromLambda([]() {
 		BaseObjectContainer::GetInstance().StartExclusiveThreadAccess();

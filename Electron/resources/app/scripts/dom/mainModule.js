@@ -211,7 +211,7 @@ function init() {
 
                 let fileList = [];
 
-                const step = 50;
+                const step = 10;
                 for (let i = 0; i < numFiles; i += step) {
                     const tmp = await tcpClient({
                         req: 'records',

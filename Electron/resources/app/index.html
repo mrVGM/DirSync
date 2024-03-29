@@ -12,7 +12,12 @@
         var app = {};
 
         const { init } = require('./scripts/init');
-        const { readPrefs } = require('./scripts/files');
+        const { readPrefs, readSysConfig } = require('./scripts/files');
+
+        function flushSysConfig() {
+            const { flushSysConfig: flush } = require('./scripts/files');
+            flush(document.sysConfig);
+        }
 
         async function test() {
             const { ipcRenderer } = require('electron');
@@ -30,6 +35,7 @@
 
             await init();
             document.prefs = await readPrefs();
+            document.sysConfig = await readSysConfig();
 
             {
                 let modalLocked = false;

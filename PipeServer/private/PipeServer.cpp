@@ -206,6 +206,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 	{
 		std::string file = std::get<std::string>(map.find("file")->second.m_payload);
 		int fileId = std::get<json_parser::JSONNumber>(map.find("file_id")->second.m_payload).ToInt();
+		int maxLoadedChunks = std::get<json_parser::JSONNumber>(map.find("max_loaded_chunks")->second.m_payload).ToInt();
 
 		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
 			if (!m_fileManager)
@@ -220,7 +221,7 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 				}
 			}
 
-			m_fileManager->RegisterFile(fileId, file);
+			m_fileManager->RegisterFile(fileId, file, maxLoadedChunks);
 			JSONValue res(ValueType::Object);
 			auto& resMap = res.GetAsObj();
 			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
@@ -254,6 +255,10 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 		ull fileSize = std::get<json_parser::JSONNumber>(map.find("file_size")->second.m_payload).ToInt();
 		std::string path = std::get<std::string>(map.find("path")->second.m_payload);
 
+		int numWorkers = std::get<json_parser::JSONNumber>(map.find("num_workers")->second.m_payload).ToInt();
+		int downloadWindow = std::get<json_parser::JSONNumber>(map.find("download_window")->second.m_payload).ToInt();
+		int pingDelay = std::get<json_parser::JSONNumber>(map.find("ping_delay")->second.m_payload).ToInt();
+
 		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
 			jobs::Job* done = jobs::Job::CreateFromLambda([=]() {
 				JSONValue res(ValueType::Object);
@@ -268,6 +273,9 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 				fileId,
 				fileSize,
 				path,
+				numWorkers,
+				downloadWindow,
+				pingDelay,
 				done
 			);
 

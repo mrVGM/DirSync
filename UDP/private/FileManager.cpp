@@ -65,12 +65,12 @@ udp::FileManagerObject::~FileManagerObject()
 	}
 }
 
-udp::FileEntry& udp::FileManagerObject::RegisterFile(int id, const std::string& path)
+udp::FileEntry& udp::FileManagerObject::RegisterFile(int id, const std::string& path, int maxLoadedChunks)
 {
 	auto it = m_filesMap.find(id);
 	if (it == m_filesMap.end())
 	{
-		FileEntry* f = new FileEntry(id, path);
+		FileEntry* f = new FileEntry(id, path, maxLoadedChunks);
 		m_filesMap[id] = f;
 		return *f;
 	}
@@ -89,7 +89,8 @@ udp::FileEntry* udp::FileManagerObject::GetFile(int id)
 	return it->second;
 }
 
-udp::FileEntry::FileEntry(int id, const std::string& path)
+udp::FileEntry::FileEntry(int id, const std::string& path, int maxLoadedChunks) :
+	m_maxLoadedChunks(maxLoadedChunks)
 {
 	Init(id, path);
 }

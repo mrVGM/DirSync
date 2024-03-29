@@ -173,8 +173,10 @@ async function getRecords(dir) {
     return res;
 }
 
+const prefsPath = path.join(__dirname, '../config/prefs.json');
+const sysPath = path.join(__dirname, '../config/sys.json');
+
 async function readPrefs() {
-    const prefsPath = path.join(__dirname, '../config/prefs.json');
 
     const pr = new Promise((resolve, reject) => {
         fs.readFile(prefsPath, (err, data) => {
@@ -188,10 +190,30 @@ async function readPrefs() {
     return config;
 }
 
+async function readSysConfig() {
+
+    const pr = new Promise((resolve, reject) => {
+        fs.readFile(sysPath, (err, data) => {
+            resolve(data);
+        });
+    });
+
+    const str = (await pr).toString();
+    const config = JSON.parse(str);
+
+    return config;
+}
+
 function flushPrefs(prefs) {
-    const prefsPath = path.join(__dirname, '../config/prefs.json');
     const dataToWrite = JSON.stringify(prefs);
     fs.writeFile(prefsPath, dataToWrite, err => {
+        console.log('Flushed');
+    });
+}
+
+function flushSysConfig(config) {
+    const dataToWrite = JSON.stringify(config);
+    fs.writeFile(sysPath, dataToWrite, err => {
         console.log('Flushed');
     });
 }
@@ -268,3 +290,5 @@ exports.getRecords = getRecords;
 exports.readPrefs = readPrefs;
 exports.flushPrefs = flushPrefs;
 exports.writeFile = writeFile;
+exports.readSysConfig = readSysConfig;
+exports.flushSysConfig = flushSysConfig;

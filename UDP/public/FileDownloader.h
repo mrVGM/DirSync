@@ -34,6 +34,11 @@ namespace udp
 		std::string m_path;
 		std::string m_serverIP;
 		int m_serverPort = -1;
+
+		int m_numWorkers = 1;
+		int m_downloadWindow = 1;
+		int m_pingDelay = 10;
+
 		jobs::Job* m_done = nullptr;
 
 		FileDownloaderObject(
@@ -42,6 +47,9 @@ namespace udp
 			unsigned int fileId,
 			ull fileSize,
 			const std::string& path,
+			int numWorkers,
+			int downloadWindow,
+			int pingDelay,
 			jobs::Job* done);
 
 		virtual ~FileDownloaderObject();
