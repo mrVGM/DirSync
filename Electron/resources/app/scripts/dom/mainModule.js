@@ -26,27 +26,27 @@ function init() {
         infoPanel.appendChild(div);
     }
 
+    function formatBytes(cnt) {
+        let suf = ['B', 'KB', 'MB', 'GB'];
+
+        let index = 0;
+        for (let i = 0; i < suf.length; ++i) {
+            index = i;
+            if (cnt < 1024) {
+                break;
+            }
+            cnt /= 1024;
+        }
+
+        return `${Math.round(cnt * 100) / 100}${suf[index]}`;
+    }
+
     function createProgressBar() {
         const bar = render('bar');
         panel.tagged.bar_space.appendChild(bar.element);
 
         const label = render('download_file_label');
         bar.tagged.label.appendChild(label.element);
-
-        function formatBytes(cnt) {
-            let suf = ['B', 'KB', 'MB', 'GB'];
-
-            let index = 0;
-            for (let i = 0; i < suf.length; ++i) {
-                index = i;
-                if (cnt < 1024) {
-                    break;
-                }
-                cnt /= 1024;
-            }
-
-            return `${Math.round(cnt * 100) / 100}${suf[index]}`;
-        }
 
         function setProgress(name, progress, speed) {
             bar.tagged.bar.style.width = `${100 * progress[0] / progress[1]}%`;
@@ -323,8 +323,11 @@ function init() {
                     const maxSamples = 10;
                     let samples = [];
 
+                    const startTime = Date.now();
+
                     const tracker = {
                         finished: async () => {
+                            const totalTime = (Date.now() - startTime) / 1000;
                             await tcpClient({ req: 'stop', fileId: f.id });
                             releaseSlot();
                             bar.remove();
@@ -333,7 +336,8 @@ function init() {
                             ++prog[0];
                             updateOveralProgress(prog);
 
-                            log(`Finished downloading ${f.path}`);
+
+                            log(`Finished downloading ${f.path} with ${formatBytes(f.fileSize / totalTime)}/s`);
                             resolve();
                         },
                         progress: p => {
