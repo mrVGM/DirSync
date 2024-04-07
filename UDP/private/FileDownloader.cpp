@@ -60,6 +60,7 @@ udp::FileDownloaderObject::FileDownloaderObject(
     m_numWorkers(numWorkers),
     m_downloadWindow(downloadWindow),
     m_pingDelay(pingDelay),
+    m_writer(*this),
     m_done(done)
 {
     if (!m_js)
@@ -80,100 +81,6 @@ void udp::FileDownloaderObject::Init()
         return;
     }
 
-    struct Chunk
-    {
-        ull m_offset = 0;
-        Packet* m_packets = nullptr;
-
-        Chunk(ull offset, const FileDownloaderObject& downloader) :
-            m_offset(offset)
-        {
-            m_packets = new Packet[FileChunk::m_chunkSizeInKBs];
-
-            ull numKB = static_cast<ull>(ceil(static_cast<double>(downloader.m_fileSize) / sizeof(KB)));
-
-            ull startKB = m_offset;
-            ull endKB = min(startKB + FileChunk::m_chunkSizeInKBs, numKB);
-
-            for (size_t i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
-            {
-                size_t index = startKB + i;
-                if (index < endKB)
-                {
-                    m_packets[i].m_packetType = PacketType::m_empty;
-                }
-                else
-                {
-                    m_packets[i].m_packetType = PacketType::m_blank;
-                }
-            }
-        }
-
-        ~Chunk()
-        {
-            delete[] m_packets;
-        }
-
-        int RecordPacket(const Packet& pkt)
-        {
-            if (pkt.m_offset < m_offset)
-            {
-                return -1;
-            }
-
-            if (pkt.m_offset >= m_offset + FileChunk::m_chunkSizeInKBs)
-            {
-                return -1;
-            }
-
-            if (m_packets[pkt.m_offset - m_offset].m_packetType.GetPacketType() == EPacketType::Empty)
-            {
-                m_packets[pkt.m_offset - m_offset] = pkt;
-                return 1;
-            }
-
-            return 0;
-        }
-
-        bool IsComplete()
-        {
-            for (size_t i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
-            {
-                if (m_packets[i].m_packetType.GetPacketType() == EPacketType::Empty)
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        void CreateDataMask(KB& outMask)
-        {
-            for (size_t i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
-            {
-                if (m_packets[i].m_packetType.GetPacketType() == EPacketType::Empty)
-                {
-                    outMask.UpBit(i);
-                }
-            }
-        }
-
-        size_t GetFull() const
-        {
-            size_t res = 0;
-            for (size_t i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
-            {
-                if (m_packets[i].m_packetType.GetPacketType() == EPacketType::Full)
-                {
-                    ++res;
-                }
-            }
-
-            return res;
-        }
-    };
-
     struct ChunkManager
     {
         FileDownloaderObject& m_downloader;
@@ -183,7 +90,6 @@ void udp::FileDownloaderObject::Init()
         ull m_passedToWriter = 0;
 
         std::list<Chunk*> m_workers;
-        std::list<Chunk*> m_toWrite;
 
         ull GetKBSize() const
         {
@@ -267,16 +173,7 @@ void udp::FileDownloaderObject::Init()
 
                 if (curChunk->IsComplete())
                 {
-                    auto readyIt = m_toWrite.begin();
-                    for (; readyIt != m_toWrite.end(); ++readyIt)
-                    {
-                        if (curChunk->m_offset < (*readyIt)->m_offset)
-                        {
-                            break;
-                        }
-                    }
-
-                    m_toWrite.insert(readyIt, curChunk);
+                    m_downloader.m_writer.PushChunk(curChunk);
                     m_workers.erase(cur);
                 }
             }
@@ -284,43 +181,10 @@ void udp::FileDownloaderObject::Init()
             while (TryCreateWorker())
             {
             }
-
-            if (m_workers.empty())
-            {
-                bool t = true;
-            }
-        }
-
-        void PassToWriter(std::queue<Chunk*>& wq)
-        {
-            auto it = m_toWrite.begin();
-            while (it != m_toWrite.end())
-            {
-                auto curIt = it++;
-                Chunk* cur = *curIt;
-
-                if (cur->m_offset > m_passedToWriter)
-                {
-                    break;
-                }
-
-                m_toWrite.erase(curIt);
-                if (cur->m_offset < m_passedToWriter)
-                {
-                    continue;
-                }
-
-                wq.push(cur);
-                m_passedToWriter += FileChunk::m_chunkSizeInKBs;
-            }
         }
     };
 
 #pragma region Allocations
-
-    std::binary_semaphore* semaphore = new std::binary_semaphore{ 1 };
-    std::mutex* writeMutex = new std::mutex();
-    std::queue<Chunk*>* writeQueue = new std::queue<Chunk*>();
 
     std::mutex* pingMutex = new std::mutex();
     ChunkManager* chunkManager = new ChunkManager(*this);
@@ -357,10 +221,6 @@ void udp::FileDownloaderObject::Init()
             }
 
             jobs::RunSync(m_done);
-
-            delete semaphore;
-            delete writeMutex;
-            delete writeQueue;
 
             delete pingMutex;
             delete chunkManager;
@@ -465,11 +325,6 @@ void udp::FileDownloaderObject::Init()
 
         while (!chunkManager->m_workers.empty())
         {
-            {
-           //      Chunk* tmp = *curChunk;
-           //     m_received = tmp->m_offset * sizeof(KB) + tmp->GetFull();
-            }
-
             std::list<Packet>& packets = m_bucket.GetAccumulated();
 
             for (auto it = packets.begin(); it != packets.end(); ++it)
@@ -488,14 +343,6 @@ void udp::FileDownloaderObject::Init()
             }
 
             chunkManager->MoveToReady();
-
-            writeMutex->lock();
-                
-            chunkManager->PassToWriter(*writeQueue);
-            semaphore->release();
-                
-            writeMutex->unlock();
-
 
             if (!chunkManager->m_workers.empty() && curReq < *fence)
             {
@@ -524,63 +371,219 @@ void udp::FileDownloaderObject::Init()
     }));
 
     m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
-        HANDLE f = CreateFile(
-            m_path.c_str(),
-            GENERIC_WRITE,
-            NULL,
-            NULL,
-            CREATE_ALWAYS,
-            FILE_ATTRIBUTE_NORMAL,
-            NULL
-        );
-
-        ull written = 0;
-        while (written < m_fileSize)
-        {
-            semaphore->acquire();
-
-            std::queue<Chunk*> local;
-
-            writeMutex->lock();
-
-            while (!writeQueue->empty())
-            {
-                Chunk* toWrite = writeQueue->front();
-                writeQueue->pop();
-                local.push(toWrite);
-            }
-
-            writeMutex->unlock();
-
-            while (!local.empty())
-            {
-                Chunk* toWrite = local.front();
-                local.pop();
-
-                for (size_t i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
-                {
-                    Packet& cur = toWrite->m_packets[i];
-
-                    size_t bytes = min(sizeof(KB), m_fileSize - written);
-                    DWORD tmp = 0;
-                    WriteFile(
-                        f,
-                        &cur.m_payload,
-                        bytes,
-                        &tmp,
-                        NULL
-                    );
-
-                    written += tmp;
-                }
-
-                delete toWrite;
-            }
-        }
-
-        CloseHandle(f);
+        m_writer.Start();
 
         *fileWritten = true;
         jobDone();
     }));
+}
+
+
+udp::Chunk::Chunk(ull offset, const FileDownloaderObject& downloader) :
+    m_offset(offset)
+{
+    m_packets = new Packet[FileChunk::m_chunkSizeInKBs];
+
+    ull numKB = static_cast<ull>(ceil(static_cast<double>(downloader.m_fileSize) / sizeof(KB)));
+
+    ull startKB = m_offset;
+    ull endKB = min(startKB + FileChunk::m_chunkSizeInKBs, numKB);
+
+    for (size_t i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
+    {
+        size_t index = startKB + i;
+        if (index < endKB)
+        {
+            m_packets[i].m_packetType = PacketType::m_empty;
+        }
+        else
+        {
+            m_packets[i].m_packetType = PacketType::m_blank;
+        }
+    }
+}
+
+udp::Chunk::~Chunk()
+{
+    delete[] m_packets;
+}
+
+int udp::Chunk::RecordPacket(const Packet& pkt)
+{
+    if (pkt.m_offset < m_offset)
+    {
+        return -1;
+    }
+
+    if (pkt.m_offset >= m_offset + FileChunk::m_chunkSizeInKBs)
+    {
+        return -1;
+    }
+
+    if (m_packets[pkt.m_offset - m_offset].m_packetType.GetPacketType() == EPacketType::Empty)
+    {
+        m_packets[pkt.m_offset - m_offset] = pkt;
+        return 1;
+    }
+
+    return 0;
+}
+
+bool udp::Chunk::IsComplete()
+{
+    for (size_t i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
+    {
+        if (m_packets[i].m_packetType.GetPacketType() == EPacketType::Empty)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void udp::Chunk::CreateDataMask(KB& outMask)
+{
+    for (size_t i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
+    {
+        if (m_packets[i].m_packetType.GetPacketType() == EPacketType::Empty)
+        {
+            outMask.UpBit(i);
+        }
+    }
+}
+
+size_t udp::Chunk::GetFull() const
+{
+    size_t res = 0;
+    for (size_t i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
+    {
+        if (m_packets[i].m_packetType.GetPacketType() == EPacketType::Full)
+        {
+            ++res;
+        }
+    }
+
+    return res;
+}
+
+
+udp::FileWriter::FileWriter(FileDownloaderObject& downloader) :
+    m_downloader(downloader)
+{
+    m_curBuff = &m_buff1;
+}
+
+void udp::FileWriter::PushChunk(Chunk* chunk)
+{
+    m_mutex.lock();
+
+    m_curBuff->push_back(chunk);
+
+    m_getChunksSemaphore.release();
+
+    m_mutex.unlock();
+}
+
+std::list<udp::Chunk*>& udp::FileWriter::GetReceived()
+{
+    m_getChunksSemaphore.acquire();
+
+    m_mutex.lock();
+
+    std::list<Chunk*>& res = *m_curBuff;
+    m_curBuff = m_curBuff == &m_buff1 ? &m_buff2 : &m_buff1;
+    m_curBuff->clear();
+
+    m_mutex.unlock();
+
+    return res;
+}
+
+void udp::FileWriter::Start()
+{
+    HANDLE f = CreateFile(
+        m_downloader.m_path.c_str(),
+        GENERIC_WRITE,
+        NULL,
+        NULL,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    ull written = 0;
+    ull KBWritten = 0;
+
+    std::list<Chunk*> toWrite;
+
+    while (written < m_downloader.m_fileSize)
+    {
+        std::list<Chunk*>& chunks = GetReceived();
+
+        for (auto it = chunks.begin(); it != chunks.end(); ++it)
+        {
+            Chunk* cur = *it;
+            if (cur->m_offset < KBWritten)
+            {
+                delete cur;
+                continue;
+            }
+
+            auto wIt = toWrite.end();
+            for (wIt = toWrite.begin(); wIt != toWrite.end(); ++wIt)
+            {
+                if (cur->m_offset <= (*wIt)->m_offset)
+                {
+                    break;
+                }
+            }
+
+            if (wIt != toWrite.end() && cur->m_offset == (*wIt)->m_offset)
+            {
+                delete cur;
+                continue;
+            }
+
+            toWrite.insert(wIt, cur);
+        }
+
+        while (!toWrite.empty())
+        {
+            Chunk* cur = toWrite.front();
+            if (cur->m_offset != KBWritten)
+            {
+                break;
+            }
+
+            toWrite.pop_front();
+
+            for (int i = 0; i < FileChunk::m_chunkSizeInKBs; ++i)
+            {
+                Packet& pak = cur->m_packets[i];
+                if (pak.m_packetType.GetPacketType() != EPacketType::Full)
+                {
+                    continue;
+                }
+
+                ull size = min(m_downloader.m_fileSize - written, sizeof(pak.m_payload));
+
+                DWORD tmpWritten;
+                WriteFile(
+                    f,
+                    &pak.m_payload,
+                    size,
+                    &tmpWritten,
+                    NULL);
+                
+                written += tmpWritten;
+                ++KBWritten;
+            }
+
+            delete cur;
+        }
+
+    }
+
+    CloseHandle(f);
 }
