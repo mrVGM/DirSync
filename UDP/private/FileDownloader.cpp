@@ -7,6 +7,8 @@
 
 #include "FileManager.h"
 
+#include "JSPool.h"
+
 #include <queue>
 #include <iostream>
 #include <WinSock2.h>
@@ -16,7 +18,7 @@ namespace
 	udp::FileDownloaderJSMeta m_downloaderJSMeta;
 	udp::FileDownloaderMeta m_downloaderMeta;
 
-    jobs::JobSystem* m_js = nullptr;
+    udp::JSPool* m_jsPool = nullptr;
 }
 
 const udp::FileDownloaderJSMeta& udp::FileDownloaderJSMeta::GetInstance()
@@ -63,10 +65,8 @@ udp::FileDownloaderObject::FileDownloaderObject(
     m_writer(*this),
     m_done(done)
 {
-    if (!m_js)
-    {
-        m_js = new jobs::JobSystem(FileDownloaderJSMeta::GetInstance(), 3 * 5);
-    }
+    static JSPool pool(4, 4);
+    m_jsPool = &pool;
 }
 
 udp::FileDownloaderObject::~FileDownloaderObject()
@@ -80,6 +80,8 @@ void udp::FileDownloaderObject::Init()
         std::cout << "socket failed with error " << m_socket << std::endl;
         return;
     }
+
+    jobs::JobSystem* js = m_jsPool->GetJS();
 
     struct ChunkManager
     {
@@ -238,7 +240,7 @@ void udp::FileDownloaderObject::Init()
         }));
     };
 
-    m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+    js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
         struct sockaddr_in serverAddr;
         short port = static_cast<short>(m_serverPort);
         const char* local_host = m_serverIP.c_str();
@@ -283,7 +285,7 @@ void udp::FileDownloaderObject::Init()
         jobDone();
     }));
 
-    m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+    js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
         while (!isFileWritten())
         {
             Packet pkt;
@@ -303,7 +305,7 @@ void udp::FileDownloaderObject::Init()
         jobDone();
     }));
 
-    m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+    js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
 
         ull curReq = 0;
 
@@ -370,7 +372,7 @@ void udp::FileDownloaderObject::Init()
         jobDone();
     }));
 
-    m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+    js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
         m_writer.Start();
 
         *fileWritten = true;

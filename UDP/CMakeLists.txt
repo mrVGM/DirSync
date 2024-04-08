@@ -9,6 +9,8 @@ add_library (UDP
 	"private/FileServer.cpp"
 	"public/FileDownloader.h"
 	"private/FileDownloader.cpp"
+	"private/JSPool.h"
+	"private/JSPool.cpp"
 )
 
 target_include_directories(UDP INTERFACE PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/public")
