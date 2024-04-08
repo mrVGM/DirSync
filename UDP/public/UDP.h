@@ -49,6 +49,7 @@ namespace udp
 		PacketType m_packetType;
 		ull m_id;
 		ull m_offset;
+		ull m_chunkId;
 		KB m_payload;
 	};
 

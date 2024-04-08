@@ -222,6 +222,7 @@ void udp::FileDownloaderObject::Init()
                 return;
             }
 
+            m_jsPool->ReleaseJS(*js);
             jobs::RunSync(m_done);
 
             delete pingMutex;
