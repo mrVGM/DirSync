@@ -56,6 +56,8 @@ namespace udp
 	class Bucket
 	{
 	private:
+		friend class BucketManager;
+
 		ull m_id;
 		std::list<Packet> m_list1;
 		std::list<Packet> m_list2;
@@ -83,7 +85,30 @@ namespace udp
 		std::map<ull, Bucket*> m_buckets;
 
 	public:
+
+		struct BucketContainer
+		{
+		private:
+			friend class BucketManager;
+			Bucket* m_bucket = nullptr;
+			BucketManager* m_manager = nullptr;
+
+		public:
+			Bucket* GetBucket()
+			{
+				return m_bucket;
+			}
+			~BucketContainer()
+			{
+				if (m_manager)
+				{
+					m_manager->m_mutex.unlock();
+				}
+			}
+		};
+
 		Bucket* GetOrCreateBucket(ull id, bool& justCreated);
+		void PushPacket(ull id, const Packet& packet);
 		void DestroyBucket(ull id);
 		~BucketManager();
 	};

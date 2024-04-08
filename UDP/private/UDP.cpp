@@ -141,6 +141,20 @@ udp::Bucket* udp::BucketManager::GetOrCreateBucket(ull id, bool& justCreated)
 	return res;
 }
 
+void udp::BucketManager::PushPacket(ull id, const Packet& packet)
+{
+	m_mutex.lock();
+
+	auto it = m_buckets.find(id);
+
+	if (it != m_buckets.end())
+	{
+		it->second->PushPacket(packet);
+	}
+
+	m_mutex.unlock();
+}
+
 void udp::BucketManager::DestroyBucket(ull id)
 {
 	m_mutex.lock();
@@ -150,8 +164,10 @@ void udp::BucketManager::DestroyBucket(ull id)
 	auto it = m_buckets.find(id);
 	if (it != m_buckets.end())
 	{
-		delete it->second;
+		Bucket* bucket = it->second;
 		m_buckets.erase(it);
+
+		delete bucket;
 	}
 
 	m_mutex.unlock();

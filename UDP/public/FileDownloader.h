@@ -69,7 +69,7 @@ namespace udp
 	{
 	public:
 		unsigned int m_fileId;
-		Bucket m_bucket;
+		BucketManager m_buckets;
 
 		ull m_fileSize = 0;
 		ull m_received = 0;
@@ -99,5 +99,7 @@ namespace udp
 		virtual ~FileDownloaderObject();
 
 		void Init() override;
+
+		void Send(const Packet& packet);
 	};
 }

@@ -5,6 +5,8 @@
 #include "Job.h"
 #include "Jobs.h"
 
+#include "ChunkDownloader.h"
+
 #include "FileManager.h"
 
 #include "JSPool.h"
@@ -19,6 +21,7 @@ namespace
 	udp::FileDownloaderMeta m_downloaderMeta;
 
     udp::JSPool* m_jsPool = nullptr;
+    udp::JSPool* m_chunkJSPool = nullptr;
 }
 
 const udp::FileDownloaderJSMeta& udp::FileDownloaderJSMeta::GetInstance()
@@ -53,7 +56,6 @@ udp::FileDownloaderObject::FileDownloaderObject(
     jobs::Job* done) :
 
     BaseObject(FileDownloaderMeta::GetInstance()),
-    m_bucket(0),
     m_fileId(fileId),
     m_serverPort(serverPort),
     m_serverIP(serverIP),
@@ -67,6 +69,11 @@ udp::FileDownloaderObject::FileDownloaderObject(
 {
     static JSPool pool(4, 4);
     m_jsPool = &pool;
+
+    static JSPool chunkPool(20, 2);
+    m_chunkJSPool = &chunkPool;
+
+    m_numWorkers = 5;
 }
 
 udp::FileDownloaderObject::~FileDownloaderObject()
@@ -83,15 +90,17 @@ void udp::FileDownloaderObject::Init()
 
     jobs::JobSystem* js = m_jsPool->GetJS();
 
-    struct ChunkManager
+    struct ChunkManager : public ChunkDownloader::Tracker
     {
         FileDownloaderObject& m_downloader;
 
-        ull m_written = 0;
-        ull m_covered = 0;
-        ull m_passedToWriter = 0;
+        std::mutex m_mutex;
 
-        std::list<Chunk*> m_workers;
+        ull m_covered = 0;
+        ull windowStart = 0;
+
+        std::set<ChunkDownloader*> m_active;
+        std::set<ChunkDownloader*> m_inactive;
 
         ull GetKBSize() const
         {
@@ -101,26 +110,41 @@ void udp::FileDownloaderObject::Init()
 
         bool TryCreateWorker()
         {
+            m_mutex.lock();
+
+            bool res = TryCreateWorkerInternal();
+
+            m_mutex.unlock();
+
+            return res;
+        }
+        bool TryCreateWorkerInternal()
+        {
             ull numKBs = GetKBSize();
             if (m_covered >= numKBs)
             {
                 return false;
             }
 
-            if (m_workers.size() >= m_downloader.m_numWorkers)
+            if (m_inactive.empty())
             {
                 return false;
             }
 
-            if (m_workers.empty())
+            ull minActive = 0;
+            for (auto it = m_active.begin(); it != m_active.end(); ++it)
             {
-                Chunk* c = new Chunk(m_covered, m_downloader);
-                m_workers.push_back(c);
-                m_covered += FileChunk::m_chunkSizeInKBs;
-                return true;
-            }
+                ChunkDownloader* cur = *it;
+                if (minActive == 0)
+                {
+                    minActive = cur->GetOffset();
+                    continue;
+                }
 
-            ull windowStart = m_workers.front()->m_offset;
+                minActive = min(minActive, cur->GetOffset());
+            }
+            windowStart = max(windowStart, minActive);
+
             ull winSize = (m_covered - windowStart) / FileChunk::m_chunkSizeInKBs;
 
             if (winSize >= m_downloader.m_downloadWindow)
@@ -128,10 +152,40 @@ void udp::FileDownloaderObject::Init()
                 return false;
             }
 
-            Chunk* c = new Chunk(m_covered, m_downloader);
-            m_workers.push_back(c);
+
+            auto it = m_inactive.begin();
+            ChunkDownloader* downloader = *it;
+            m_inactive.erase(it);
+
+            m_active.insert(downloader);
+            jobs::JobSystem* js = m_chunkJSPool->GetJS();
+            downloader->DownloadChunk(m_covered, *this, js);
             m_covered += FileChunk::m_chunkSizeInKBs;
+
             return true;
+        }
+
+        void Finished(ChunkDownloader* downloader, Chunk* chunk, jobs::JobSystem* js) override
+        {
+            m_chunkJSPool->ReleaseJS(*js);
+
+            m_mutex.lock();
+
+            m_active.erase(downloader);
+            m_inactive.insert(downloader);
+
+            m_mutex.unlock();
+
+            while (TryCreateWorker())
+            {
+            }
+
+            m_downloader.m_writer.PushChunk(chunk);
+        }
+
+        void IncrementProgress() override
+        {
+            m_downloader.m_received += sizeof(KB);
         }
 
         ChunkManager(FileDownloaderObject& downloader) :
@@ -139,72 +193,43 @@ void udp::FileDownloaderObject::Init()
         {
             ull numKB = GetKBSize();
 
+            m_mutex.lock();
             for (int i = 0; i < m_downloader.m_numWorkers; ++i)
             {
-                if (!TryCreateWorker())
-                {
-                    break;
-                }
+                m_inactive.insert(new ChunkDownloader(m_downloader));
             }
-        }
-
-        void RecordPacket(const Packet& pkt)
-        {
-            for (auto it = m_workers.begin(); it != m_workers.end(); ++it)
-            {
-                Chunk* c = *it;
-                int res = c->RecordPacket(pkt);
-
-                if (res >= 0)
-                {
-                    m_downloader.m_received += sizeof(KB);
-                    break;
-                }
-            }
-        }
-
-        void MoveToReady()
-        {
-            auto it = m_workers.begin();
-            auto end = m_workers.end();
-
-            while (it != end)
-            {
-                auto cur = it++;
-                Chunk* curChunk = *cur;
-
-                if (curChunk->IsComplete())
-                {
-                    m_downloader.m_writer.PushChunk(curChunk);
-                    m_workers.erase(cur);
-                }
-            }
+            m_mutex.unlock();
 
             while (TryCreateWorker())
             {
             }
         }
+
+        ~ChunkManager()
+        {
+            m_mutex.lock();
+            for (auto it = m_active.begin(); it != m_active.end(); ++it)
+            {
+                delete (*it);
+            }
+
+            for (auto it = m_inactive.begin(); it != m_inactive.end(); ++it)
+            {
+                delete (*it);
+            }
+            m_mutex.unlock();
+        }
     };
 
 #pragma region Allocations
 
-    std::mutex* pingMutex = new std::mutex();
     ChunkManager* chunkManager = new ChunkManager(*this);
-    std::list<Packet>* masks = new std::list<Packet>();
     
-    ull* counter = new ull;
-    *counter = 0;
-    ull* fence = new ull;
-    *fence = 0;
-
     bool* fileWritten = new bool;
     *fileWritten = false;
 
     int* waiting = new int;
-    *waiting = 4;
-
-    bool* receivingPackets = new bool;
-    *receivingPackets = true;
+    *waiting = 2;
 
 #pragma endregion
 
@@ -225,66 +250,13 @@ void udp::FileDownloaderObject::Init()
             m_jsPool->ReleaseJS(*js);
             jobs::RunSync(m_done);
 
-            delete pingMutex;
             delete chunkManager;
-            delete masks;
-
-            delete counter;
-            delete fence;
-
             delete fileWritten;
-
             delete waiting;
-            delete receivingPackets;
 
             delete this;
         }));
     };
-
-    js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
-        struct sockaddr_in serverAddr;
-        short port = static_cast<short>(m_serverPort);
-        const char* local_host = m_serverIP.c_str();
-        serverAddr.sin_family = AF_INET;
-        serverAddr.sin_port = htons(port);
-        serverAddr.sin_addr.s_addr = inet_addr(local_host);
-
-        Packet pkt;
-        pkt.m_packetType = PacketType::m_ping;
-        pkt.m_id = m_fileId;
-
-        while (*receivingPackets)
-        {
-            std::list<Packet> toSend;
-            pingMutex->lock();
-            
-            toSend = *masks;
-            masks->clear();
-            pkt.m_offset = (*counter)++;
-
-            pingMutex->unlock();
-
-            if (toSend.empty())
-            {
-                toSend.push_back(pkt);
-            }
-
-            for (auto it = toSend.begin(); it != toSend.end(); ++it)
-            {
-                sendto(
-                    m_socket,
-                    reinterpret_cast<char*>(&(*it)),
-                    sizeof(Packet),
-                    0 /* no flags*/,
-                    reinterpret_cast<sockaddr*>(&serverAddr),
-                    sizeof(sockaddr_in));
-            }
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(m_pingDelay));
-        }
-
-        jobDone();
-    }));
 
     js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
         while (!isFileWritten())
@@ -299,75 +271,8 @@ void udp::FileDownloaderObject::Init()
                 continue;
             }
 
-            m_bucket.PushPacket(pkt);
-        }
-        *receivingPackets = false;
-
-        jobDone();
-    }));
-
-    js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
-
-        ull curReq = 0;
-
-        {
-            pingMutex->lock();
-
-            for (auto it = chunkManager->m_workers.begin(); it != chunkManager->m_workers.end(); ++it)
-            {
-                Packet& pkt = masks->emplace_back();
-                pkt.m_packetType = PacketType::m_bitmask;
-                pkt.m_id = m_fileId;
-                pkt.m_offset = (*it)->m_offset;
-                pkt.m_payload = {};
-                (*it)->CreateDataMask(pkt.m_payload);
-            }
-
-            pingMutex->unlock();
-        }
-
-        while (!chunkManager->m_workers.empty())
-        {
-            std::list<Packet>& packets = m_bucket.GetAccumulated();
-
-            for (auto it = packets.begin(); it != packets.end(); ++it)
-            {
-                Packet& pkt = *it;
-                
-                switch (pkt.m_packetType.GetPacketType())
-                {
-                case EPacketType::Full:
-                    chunkManager->RecordPacket(pkt);
-                    break;
-                case EPacketType::Ping:
-                    *fence = max(*fence, pkt.m_offset);
-                    break;
-                }
-            }
-
-            chunkManager->MoveToReady();
-
-            if (!chunkManager->m_workers.empty() && curReq < *fence)
-            {
-                pingMutex->lock();
-
-                curReq = *counter;
-
-                for (auto it = chunkManager->m_workers.begin(); it != chunkManager->m_workers.end(); ++it)
-                {
-                    Packet& pkt = masks->emplace_back();
-                    pkt.m_packetType = PacketType::m_bitmask;
-                    pkt.m_id = m_fileId;
-                    pkt.m_offset = (*it)->m_offset;
-                    pkt.m_payload = {};
-                    (*it)->CreateDataMask(pkt.m_payload);
-                }
-
-                pingMutex->unlock();
-            }
-
-
-            packets.clear();
+            ull bucketId = pkt.m_chunkId;
+            m_buckets.PushPacket(bucketId, pkt);
         }
 
         jobDone();
@@ -377,6 +282,8 @@ void udp::FileDownloaderObject::Init()
         m_writer.Start();
 
         *fileWritten = true;
+
+        closesocket(m_socket);
         jobDone();
     }));
 }
@@ -589,4 +496,22 @@ void udp::FileWriter::Start()
     }
 
     CloseHandle(f);
+}
+
+void udp::FileDownloaderObject::Send(const Packet& packet)
+{
+    struct sockaddr_in serverAddr;
+    short port = static_cast<short>(m_serverPort);
+    const char* local_host = m_serverIP.c_str();
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(port);
+    serverAddr.sin_addr.s_addr = inet_addr(local_host);
+
+    sendto(
+        m_socket,
+        reinterpret_cast<const char*>(&packet),
+        sizeof(Packet),
+        0 /* no flags*/,
+        reinterpret_cast<sockaddr*>(&serverAddr),
+        sizeof(sockaddr_in));
 }

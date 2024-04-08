@@ -11,6 +11,8 @@ add_library (UDP
 	"private/FileDownloader.cpp"
 	"private/JSPool.h"
 	"private/JSPool.cpp"
+	"private/ChunkDownloader.h"
+	"private/ChunkDownloader.cpp"
 )
 
 target_include_directories(UDP INTERFACE PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/public")
