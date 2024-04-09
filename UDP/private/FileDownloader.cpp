@@ -85,9 +85,12 @@ void udp::FileDownloaderObject::Init()
     {
         FileDownloaderObject& m_downloader;
 
-        ull m_written = 0;
+        std::mutex pingMutex = std::mutex();
+        std::list<Packet> masks = std::list<Packet>();
+        ull counter = 0;
+        ull fence = 0;
+
         ull m_covered = 0;
-        ull m_passedToWriter = 0;
 
         std::list<Chunk*> m_workers;
 
@@ -186,14 +189,7 @@ void udp::FileDownloaderObject::Init()
 
 #pragma region Allocations
 
-    std::mutex* pingMutex = new std::mutex();
     ChunkManager* chunkManager = new ChunkManager(*this);
-    std::list<Packet>* masks = new std::list<Packet>();
-    
-    ull* counter = new ull;
-    *counter = 0;
-    ull* fence = new ull;
-    *fence = 0;
 
     bool* fileWritten = new bool;
     *fileWritten = false;
@@ -222,12 +218,7 @@ void udp::FileDownloaderObject::Init()
 
             jobs::RunSync(m_done);
 
-            delete pingMutex;
             delete chunkManager;
-            delete masks;
-
-            delete counter;
-            delete fence;
 
             delete fileWritten;
 
@@ -253,13 +244,13 @@ void udp::FileDownloaderObject::Init()
         while (*receivingPackets)
         {
             std::list<Packet> toSend;
-            pingMutex->lock();
+            chunkManager->pingMutex.lock();
             
-            toSend = *masks;
-            masks->clear();
-            pkt.m_offset = (*counter)++;
+            toSend = chunkManager->masks;
+            chunkManager->masks.clear();
+            pkt.m_offset = (chunkManager->counter)++;
 
-            pingMutex->unlock();
+            chunkManager->pingMutex.unlock();
 
             if (toSend.empty())
             {
@@ -308,11 +299,11 @@ void udp::FileDownloaderObject::Init()
         ull curReq = 0;
 
         {
-            pingMutex->lock();
+            chunkManager->pingMutex.lock();
 
             for (auto it = chunkManager->m_workers.begin(); it != chunkManager->m_workers.end(); ++it)
             {
-                Packet& pkt = masks->emplace_back();
+                Packet& pkt = chunkManager->masks.emplace_back();
                 pkt.m_packetType = PacketType::m_bitmask;
                 pkt.m_id = m_fileId;
                 pkt.m_offset = (*it)->m_offset;
@@ -320,7 +311,7 @@ void udp::FileDownloaderObject::Init()
                 (*it)->CreateDataMask(pkt.m_payload);
             }
 
-            pingMutex->unlock();
+            chunkManager->pingMutex.unlock();
         }
 
         while (!chunkManager->m_workers.empty())
@@ -337,22 +328,22 @@ void udp::FileDownloaderObject::Init()
                     chunkManager->RecordPacket(pkt);
                     break;
                 case EPacketType::Ping:
-                    *fence = max(*fence, pkt.m_offset);
+                    chunkManager->fence = max(chunkManager->fence, pkt.m_offset);
                     break;
                 }
             }
 
             chunkManager->MoveToReady();
 
-            if (!chunkManager->m_workers.empty() && curReq < *fence)
+            if (!chunkManager->m_workers.empty() && curReq < chunkManager->fence)
             {
-                pingMutex->lock();
+                chunkManager->pingMutex.lock();
 
-                curReq = *counter;
+                curReq = chunkManager->counter;
 
                 for (auto it = chunkManager->m_workers.begin(); it != chunkManager->m_workers.end(); ++it)
                 {
-                    Packet& pkt = masks->emplace_back();
+                    Packet& pkt = chunkManager->masks.emplace_back();
                     pkt.m_packetType = PacketType::m_bitmask;
                     pkt.m_id = m_fileId;
                     pkt.m_offset = (*it)->m_offset;
@@ -360,7 +351,7 @@ void udp::FileDownloaderObject::Init()
                     (*it)->CreateDataMask(pkt.m_payload);
                 }
 
-                pingMutex->unlock();
+                chunkManager->pingMutex.unlock();
             }
 
 
