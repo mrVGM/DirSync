@@ -14,7 +14,7 @@ namespace
 	udp::FileManagerMeta m_instance;
 }
 
-ull udp::FileChunk::m_chunkSizeInKBs = 8 * 1024;
+ull udp::FileChunk::m_chunkSizeInKBs = 8 * sizeof(KB);
 
 udp::FileChunk::FileChunk()
 {
