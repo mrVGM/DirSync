@@ -75,20 +75,18 @@ udp::FileDownloaderObject::~FileDownloaderObject()
 
 void udp::FileDownloaderObject::Init()
 {
-    m_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (m_socket == INVALID_SOCKET) {
-        std::cout << "socket failed with error " << m_socket << std::endl;
-        return;
-    }
-
     struct ChunkManager
     {
         FileDownloaderObject& m_downloader;
+        std::function<void()> m_done;
 
         std::mutex pingMutex = std::mutex();
         std::list<Packet> masks = std::list<Packet>();
         ull counter = 0;
         ull fence = 0;
+        bool finished = false;
+
+        int waiting = 2;
 
         ull m_covered = 0;
 
@@ -135,8 +133,11 @@ void udp::FileDownloaderObject::Init()
             return true;
         }
 
-        ChunkManager(FileDownloaderObject& downloader) :
-            m_downloader(downloader)
+        ChunkManager(
+            FileDownloaderObject& downloader,
+            const std::function<void()>& done) :
+            m_downloader(downloader),
+            m_done(done)
         {
             ull numKB = GetKBSize();
 
@@ -185,187 +186,193 @@ void udp::FileDownloaderObject::Init()
             {
             }
         }
+
+        void Start()
+        {
+            SOCKET sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+            if (sock == INVALID_SOCKET) {
+                std::cout << "socket failed with error " << sock << std::endl;
+                return;
+            }
+
+            auto itemDone = [=]() {
+                --waiting;
+                if (waiting > 0)
+                {
+                    return;
+                }
+
+                m_done();
+            };
+
+            m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+                struct sockaddr_in serverAddr;
+                short port = static_cast<short>(m_downloader.m_serverPort);
+                const char* local_host = m_downloader.m_serverIP.c_str();
+                serverAddr.sin_family = AF_INET;
+                serverAddr.sin_port = htons(port);
+                serverAddr.sin_addr.s_addr = inet_addr(local_host);
+
+                Packet pkt;
+                pkt.m_packetType = PacketType::m_ping;
+                pkt.m_id = m_downloader.m_fileId;
+
+                while (!finished)
+                {
+                    std::list<Packet> toSend;
+                    pingMutex.lock();
+
+                    toSend = masks;
+                    masks.clear();
+                    pkt.m_offset = counter++;
+
+                    pingMutex.unlock();
+
+                    if (toSend.empty())
+                    {
+                        toSend.push_back(pkt);
+                    }
+
+                    for (auto it = toSend.begin(); it != toSend.end(); ++it)
+                    {
+                        sendto(
+                            sock,
+                            reinterpret_cast<char*>(&(*it)),
+                            sizeof(Packet),
+                            0 /* no flags*/,
+                            reinterpret_cast<sockaddr*>(&serverAddr),
+                            sizeof(sockaddr_in));
+                    }
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(m_downloader.m_pingDelay));
+                }
+
+                jobs::RunSync(jobs::Job::CreateFromLambda(itemDone));
+            }));
+
+
+            m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+
+                ull curReq = 0;
+
+                {
+                    pingMutex.lock();
+
+                    for (auto it = m_workers.begin(); it != m_workers.end(); ++it)
+                    {
+                        Packet& pkt = masks.emplace_back();
+                        pkt.m_packetType = PacketType::m_bitmask;
+                        pkt.m_id = m_downloader.m_fileId;
+                        pkt.m_offset = (*it)->m_offset;
+                        pkt.m_payload = {};
+                        (*it)->CreateDataMask(pkt.m_payload);
+                    }
+
+                    pingMutex.unlock();
+                }
+
+                while (!m_workers.empty())
+                {
+                    std::list<Packet>& packets = m_downloader.m_bucket.GetAccumulated();
+
+                    for (auto it = packets.begin(); it != packets.end(); ++it)
+                    {
+                        Packet& pkt = *it;
+
+                        switch (pkt.m_packetType.GetPacketType())
+                        {
+                        case EPacketType::Full:
+                            RecordPacket(pkt);
+                            break;
+                        case EPacketType::Ping:
+                            fence = max(fence, pkt.m_offset);
+                            break;
+                        }
+                    }
+
+                    MoveToReady();
+
+                    if (!m_workers.empty() && curReq < fence)
+                    {
+                        pingMutex.lock();
+
+                        curReq = counter++;
+
+                        for (auto it = m_workers.begin(); it != m_workers.end(); ++it)
+                        {
+                            Packet& pkt = masks.emplace_back();
+                            pkt.m_packetType = PacketType::m_bitmask;
+                            pkt.m_id = m_downloader.m_fileId;
+                            pkt.m_offset = (*it)->m_offset;
+                            pkt.m_payload = {};
+                            (*it)->CreateDataMask(pkt.m_payload);
+                        }
+
+                        pingMutex.unlock();
+                    }
+
+                    packets.clear();
+                }
+
+                finished = true;
+                closesocket(sock);
+            }));
+
+
+            m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+                while (!finished)
+                {
+                    Packet pkt;
+                    sockaddr_in from;
+                    int size = sizeof(from);
+                    int bytes_received = recvfrom(sock, reinterpret_cast<char*>(&pkt), sizeof(Packet), 0, reinterpret_cast<sockaddr*>(&from), &size);
+
+                    if (bytes_received == SOCKET_ERROR) {
+                        std::cout << "recvfrom failed with error " << WSAGetLastError() << std::endl;
+                        continue;
+                    }
+
+                    m_downloader.m_bucket.PushPacket(pkt);
+                }
+
+                jobs::RunSync(jobs::Job::CreateFromLambda(itemDone));
+            }));
+        }
     };
 
 #pragma region Allocations
 
-    ChunkManager* chunkManager = new ChunkManager(*this);
-
-    bool* fileWritten = new bool;
-    *fileWritten = false;
+    ChunkManager* chunkManager = nullptr;
 
     int* waiting = new int;
-    *waiting = 4;
-
-    bool* receivingPackets = new bool;
-    *receivingPackets = true;
+    *waiting = 2;
 
 #pragma endregion
 
-    auto isFileWritten = [=]() {
-        return *fileWritten;
+    auto itemDone = [=]() {
+        --(*waiting);
+        if (*waiting > 0)
+        {
+            return;
+        }
+
+        jobs::RunSync(m_done);
+
+        delete waiting;
+        delete chunkManager;
+
+        delete this;
     };
 
-    auto jobDone = [=]() {
-        jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
-            int& cnt = *waiting;
-            --cnt;
+    chunkManager = new ChunkManager(*this, [=]() {
+        jobs::RunSync(jobs::Job::CreateFromLambda(itemDone));
+    });
 
-            if (cnt > 0)
-            {
-                return;
-            }
-
-            jobs::RunSync(m_done);
-
-            delete chunkManager;
-
-            delete fileWritten;
-
-            delete waiting;
-            delete receivingPackets;
-
-            delete this;
-        }));
-    };
-
-    m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
-        struct sockaddr_in serverAddr;
-        short port = static_cast<short>(m_serverPort);
-        const char* local_host = m_serverIP.c_str();
-        serverAddr.sin_family = AF_INET;
-        serverAddr.sin_port = htons(port);
-        serverAddr.sin_addr.s_addr = inet_addr(local_host);
-
-        Packet pkt;
-        pkt.m_packetType = PacketType::m_ping;
-        pkt.m_id = m_fileId;
-
-        while (*receivingPackets)
-        {
-            std::list<Packet> toSend;
-            chunkManager->pingMutex.lock();
-            
-            toSend = chunkManager->masks;
-            chunkManager->masks.clear();
-            pkt.m_offset = (chunkManager->counter)++;
-
-            chunkManager->pingMutex.unlock();
-
-            if (toSend.empty())
-            {
-                toSend.push_back(pkt);
-            }
-
-            for (auto it = toSend.begin(); it != toSend.end(); ++it)
-            {
-                sendto(
-                    m_socket,
-                    reinterpret_cast<char*>(&(*it)),
-                    sizeof(Packet),
-                    0 /* no flags*/,
-                    reinterpret_cast<sockaddr*>(&serverAddr),
-                    sizeof(sockaddr_in));
-            }
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(m_pingDelay));
-        }
-
-        jobDone();
-    }));
-
-    m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
-        while (!isFileWritten())
-        {
-            Packet pkt;
-            sockaddr_in from;
-            int size = sizeof(from);
-            int bytes_received = recvfrom(m_socket, reinterpret_cast<char*>(&pkt), sizeof(Packet), 0, reinterpret_cast<sockaddr*>(&from), &size);
-
-            if (bytes_received == SOCKET_ERROR) {
-                std::cout << "recvfrom failed with error " << WSAGetLastError() << std::endl;
-                continue;
-            }
-
-            m_bucket.PushPacket(pkt);
-        }
-        *receivingPackets = false;
-
-        jobDone();
-    }));
-
-    m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
-
-        ull curReq = 0;
-
-        {
-            chunkManager->pingMutex.lock();
-
-            for (auto it = chunkManager->m_workers.begin(); it != chunkManager->m_workers.end(); ++it)
-            {
-                Packet& pkt = chunkManager->masks.emplace_back();
-                pkt.m_packetType = PacketType::m_bitmask;
-                pkt.m_id = m_fileId;
-                pkt.m_offset = (*it)->m_offset;
-                pkt.m_payload = {};
-                (*it)->CreateDataMask(pkt.m_payload);
-            }
-
-            chunkManager->pingMutex.unlock();
-        }
-
-        while (!chunkManager->m_workers.empty())
-        {
-            std::list<Packet>& packets = m_bucket.GetAccumulated();
-
-            for (auto it = packets.begin(); it != packets.end(); ++it)
-            {
-                Packet& pkt = *it;
-                
-                switch (pkt.m_packetType.GetPacketType())
-                {
-                case EPacketType::Full:
-                    chunkManager->RecordPacket(pkt);
-                    break;
-                case EPacketType::Ping:
-                    chunkManager->fence = max(chunkManager->fence, pkt.m_offset);
-                    break;
-                }
-            }
-
-            chunkManager->MoveToReady();
-
-            if (!chunkManager->m_workers.empty() && curReq < chunkManager->fence)
-            {
-                chunkManager->pingMutex.lock();
-
-                curReq = chunkManager->counter;
-
-                for (auto it = chunkManager->m_workers.begin(); it != chunkManager->m_workers.end(); ++it)
-                {
-                    Packet& pkt = chunkManager->masks.emplace_back();
-                    pkt.m_packetType = PacketType::m_bitmask;
-                    pkt.m_id = m_fileId;
-                    pkt.m_offset = (*it)->m_offset;
-                    pkt.m_payload = {};
-                    (*it)->CreateDataMask(pkt.m_payload);
-                }
-
-                chunkManager->pingMutex.unlock();
-            }
-
-
-            packets.clear();
-        }
-
-        jobDone();
-    }));
+    chunkManager->Start();
 
     m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
         m_writer.Start();
-
-        *fileWritten = true;
-        jobDone();
+        jobs::RunSync(jobs::Job::CreateFromLambda(itemDone));
     }));
 }
 
