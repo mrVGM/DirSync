@@ -66,10 +66,10 @@ udp::FileDownloaderObject::FileDownloaderObject(
 {
     if (!m_js)
     {
-        m_js = new jobs::JobSystem(FileDownloaderJSMeta::GetInstance(), 4);
+        m_js = new jobs::JobSystem(FileDownloaderJSMeta::GetInstance(), statics::MAX_PARALLEL_DOWNLOADS);
     }
 
-    static JSPool pool(4, 3);
+    static JSPool pool(2 * statics::MAX_PARALLEL_DOWNLOADS, 3);
     m_pool = &pool;
 }
 

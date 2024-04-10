@@ -112,7 +112,7 @@ udp::FileServerObject::FileServerObject() :
     }
 
     m_serverJS = new jobs::JobSystem(FileServerJSMeta::GetInstance(), 1);
-    m_serverHandlersJS = new jobs::JobSystem(FileServerHandlersJSMeta::GetInstance(), 8);
+    m_serverHandlersJS = new jobs::JobSystem(FileServerHandlersJSMeta::GetInstance(), 2 * statics::MAX_PARALLEL_DOWNLOADS);
 }
 
 udp::FileServerObject::~FileServerObject()
