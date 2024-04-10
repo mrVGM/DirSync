@@ -80,8 +80,73 @@ udp::FileDownloaderObject::~FileDownloaderObject()
 
 void udp::FileDownloaderObject::Init()
 {
+    class ChunkManagerContext
+    {
+    private:
+        ull m_windowStart = 0;
+        std::mutex m_mutex;
+        std::list<ull> m_activeChunks;
+
+    public:
+        ull GetWindowStart()
+        {
+            m_mutex.lock();
+            ull res = m_windowStart;
+            m_mutex.unlock();
+            return res;
+        }
+
+        void StartChunk(ull offset)
+        {
+            m_mutex.lock();
+
+            auto it = m_activeChunks.begin();
+            for (; it != m_activeChunks.end(); ++it)
+            {
+                if (offset < *it)
+                {
+                    break;
+                }
+            }
+            m_activeChunks.insert(it, offset);
+
+            if (!m_activeChunks.empty())
+            {
+                m_windowStart = m_activeChunks.front();
+            }
+
+            m_mutex.unlock();
+        }
+
+        void ChunkFinished(ull offset)
+        {
+            m_mutex.lock();
+
+            for (auto it = m_activeChunks.begin(); it != m_activeChunks.end(); ++it)
+            {
+                if (offset == *it)
+                {
+                    m_activeChunks.erase(it);
+                    break;
+                }
+            }
+
+            if (!m_activeChunks.empty())
+            {
+                m_windowStart = m_activeChunks.front();
+            }
+
+            m_mutex.unlock();
+        }
+    };
+
+    ChunkManagerContext* cmCTX = new ChunkManagerContext();
+
     struct ChunkManager
     {
+        ChunkManagerContext& m_cmCTX;
+        int m_reminder;
+
         FileDownloaderObject& m_downloader;
         std::function<void()> m_done;
 
@@ -94,6 +159,7 @@ void udp::FileDownloaderObject::Init()
         int waiting = 2;
 
         ull m_covered = 0;
+        bool m_fullyCovered = false;
 
         std::list<Chunk*> m_workers;
 
@@ -108,6 +174,7 @@ void udp::FileDownloaderObject::Init()
             ull numKBs = GetKBSize();
             if (m_covered >= numKBs)
             {
+                m_fullyCovered = true;
                 return false;
             }
 
@@ -120,11 +187,12 @@ void udp::FileDownloaderObject::Init()
             {
                 Chunk* c = new Chunk(m_covered, m_downloader);
                 m_workers.push_back(c);
+                m_cmCTX.StartChunk(m_covered);
                 m_covered += FileChunk::m_chunkSizeInKBs;
                 return true;
             }
 
-            ull windowStart = m_workers.front()->m_offset;
+            ull windowStart = m_cmCTX.GetWindowStart();
             ull winSize = (m_covered - windowStart) / FileChunk::m_chunkSizeInKBs;
 
             if (winSize >= m_downloader.m_downloadWindow)
@@ -134,16 +202,22 @@ void udp::FileDownloaderObject::Init()
 
             Chunk* c = new Chunk(m_covered, m_downloader);
             m_workers.push_back(c);
+            m_cmCTX.StartChunk(m_covered);
             m_covered += FileChunk::m_chunkSizeInKBs;
             return true;
         }
 
         ChunkManager(
+            ChunkManagerContext& cmCTX,
+            int reminder,
             FileDownloaderObject& downloader,
             const std::function<void()>& done) :
+            m_cmCTX(cmCTX),
+            m_reminder(reminder),
             m_downloader(downloader),
             m_done(done)
         {
+            m_covered = m_reminder * FileChunk::m_chunkSizeInKBs;
             ull numKB = GetKBSize();
 
             for (int i = 0; i < m_downloader.m_numWorkers; ++i)
@@ -184,6 +258,7 @@ void udp::FileDownloaderObject::Init()
                 {
                     m_downloader.m_writer.PushChunk(curChunk);
                     m_workers.erase(cur);
+                    m_cmCTX.ChunkFinished(curChunk->m_offset);
                 }
             }
 
@@ -280,7 +355,7 @@ void udp::FileDownloaderObject::Init()
                     pingMutex.unlock();
                 }
 
-                while (!m_workers.empty())
+                while (!m_fullyCovered || !m_workers.empty())
                 {
                     std::list<Packet>& packets = m_downloader.m_bucket.GetAccumulated();
 
@@ -368,12 +443,13 @@ void udp::FileDownloaderObject::Init()
         jobs::RunSync(m_done);
 
         delete waiting;
+        delete cmCTX;
         delete chunkManager;
 
         delete this;
     };
 
-    chunkManager = new ChunkManager(*this, [=]() {
+    chunkManager = new ChunkManager(*cmCTX , 0, *this, [=]() {
         jobs::RunSync(jobs::Job::CreateFromLambda(itemDone));
     });
 
