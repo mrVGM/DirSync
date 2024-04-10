@@ -98,6 +98,11 @@ bool udp::FileServerObject::CheckBucket(ull bucketID)
     return res;
 }
 
+ull udp::FileServerObject::GetFileId(const Packet& packet) const
+{
+    return packet.m_id / 2;
+}
+
 udp::FileServerObject::FileServerObject() :
 	BaseObject(FileServerMeta::GetInstance())
 {
@@ -107,7 +112,7 @@ udp::FileServerObject::FileServerObject() :
     }
 
     m_serverJS = new jobs::JobSystem(FileServerJSMeta::GetInstance(), 1);
-    m_serverHandlersJS = new jobs::JobSystem(FileServerHandlersJSMeta::GetInstance(), 5);
+    m_serverHandlersJS = new jobs::JobSystem(FileServerHandlersJSMeta::GetInstance(), 8);
 }
 
 udp::FileServerObject::~FileServerObject()
@@ -158,7 +163,7 @@ void udp::FileServerObject::Init()
             Bucket* bucket = m_bucketManager.GetOrCreateBucket(bucketId, justCreated);
             bucket->PushPacket(pkt);
 
-            FileEntry* file = m_fileManger->GetFile(bucketId);
+            FileEntry* file = m_fileManger->GetFile(GetFileId(pkt));
 
             if (justCreated)
             {
@@ -208,7 +213,11 @@ void udp::FileServerObject::Init()
                     }
 
                     m_bucketManager.DestroyBucket(bucketId);
-                    file->UnloadData();
+
+                    if (bucketId % 2 == 0)
+                    {
+                        file->UnloadData();
+                    }
                 }));
             }
         }

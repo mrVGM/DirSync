@@ -69,7 +69,6 @@ namespace udp
 	{
 	public:
 		unsigned int m_fileId;
-		Bucket m_bucket;
 
 		ull m_fileSize = 0;
 		ull m_received = 0;

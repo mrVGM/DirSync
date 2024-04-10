@@ -53,7 +53,6 @@ udp::FileDownloaderObject::FileDownloaderObject(
     jobs::Job* done) :
 
     BaseObject(FileDownloaderMeta::GetInstance()),
-    m_bucket(0),
     m_fileId(fileId),
     m_serverPort(serverPort),
     m_serverIP(serverIP),
@@ -147,6 +146,8 @@ void udp::FileDownloaderObject::Init()
         ChunkManagerContext& m_cmCTX;
         int m_reminder;
 
+        Bucket m_bucket;
+
         FileDownloaderObject& m_downloader;
         std::function<void()> m_done;
 
@@ -188,7 +189,7 @@ void udp::FileDownloaderObject::Init()
                 Chunk* c = new Chunk(m_covered, m_downloader);
                 m_workers.push_back(c);
                 m_cmCTX.StartChunk(m_covered);
-                m_covered += FileChunk::m_chunkSizeInKBs;
+                m_covered += 2 * FileChunk::m_chunkSizeInKBs;
                 return true;
             }
 
@@ -203,7 +204,7 @@ void udp::FileDownloaderObject::Init()
             Chunk* c = new Chunk(m_covered, m_downloader);
             m_workers.push_back(c);
             m_cmCTX.StartChunk(m_covered);
-            m_covered += FileChunk::m_chunkSizeInKBs;
+            m_covered += 2 * FileChunk::m_chunkSizeInKBs;
             return true;
         }
 
@@ -214,6 +215,7 @@ void udp::FileDownloaderObject::Init()
             const std::function<void()>& done) :
             m_cmCTX(cmCTX),
             m_reminder(reminder),
+            m_bucket(0),
             m_downloader(downloader),
             m_done(done)
         {
@@ -227,6 +229,11 @@ void udp::FileDownloaderObject::Init()
                     break;
                 }
             }
+        }
+
+        ull GetPacketID() const
+        {
+            return 2 * m_downloader.m_fileId + m_reminder;
         }
 
         void RecordPacket(const Packet& pkt)
@@ -299,7 +306,7 @@ void udp::FileDownloaderObject::Init()
 
                 Packet pkt;
                 pkt.m_packetType = PacketType::m_ping;
-                pkt.m_id = m_downloader.m_fileId;
+                pkt.m_id = GetPacketID();
 
                 while (!finished)
                 {
@@ -346,7 +353,7 @@ void udp::FileDownloaderObject::Init()
                     {
                         Packet& pkt = masks.emplace_back();
                         pkt.m_packetType = PacketType::m_bitmask;
-                        pkt.m_id = m_downloader.m_fileId;
+                        pkt.m_id = GetPacketID();
                         pkt.m_offset = (*it)->m_offset;
                         pkt.m_payload = {};
                         (*it)->CreateDataMask(pkt.m_payload);
@@ -357,7 +364,7 @@ void udp::FileDownloaderObject::Init()
 
                 while (!m_fullyCovered || !m_workers.empty())
                 {
-                    std::list<Packet>& packets = m_downloader.m_bucket.GetAccumulated();
+                    std::list<Packet>& packets = m_bucket.GetAccumulated();
 
                     for (auto it = packets.begin(); it != packets.end(); ++it)
                     {
@@ -386,7 +393,7 @@ void udp::FileDownloaderObject::Init()
                         {
                             Packet& pkt = masks.emplace_back();
                             pkt.m_packetType = PacketType::m_bitmask;
-                            pkt.m_id = m_downloader.m_fileId;
+                            pkt.m_id = GetPacketID();
                             pkt.m_offset = (*it)->m_offset;
                             pkt.m_payload = {};
                             (*it)->CreateDataMask(pkt.m_payload);
@@ -416,7 +423,7 @@ void udp::FileDownloaderObject::Init()
                         continue;
                     }
 
-                    m_downloader.m_bucket.PushPacket(pkt);
+                    m_bucket.PushPacket(pkt);
                 }
 
                 jobs::RunSync(jobs::Job::CreateFromLambda(itemDone));
@@ -427,9 +434,10 @@ void udp::FileDownloaderObject::Init()
 #pragma region Allocations
 
     ChunkManager* chunkManager = nullptr;
+    ChunkManager* chunkManager1 = nullptr;
 
     int* waiting = new int;
-    *waiting = 2;
+    *waiting = 3;
 
 #pragma endregion
 
@@ -445,6 +453,7 @@ void udp::FileDownloaderObject::Init()
         delete waiting;
         delete cmCTX;
         delete chunkManager;
+        delete chunkManager1;
 
         delete this;
     };
@@ -453,7 +462,12 @@ void udp::FileDownloaderObject::Init()
         jobs::RunSync(jobs::Job::CreateFromLambda(itemDone));
     });
 
+    chunkManager1 = new ChunkManager(*cmCTX, 1, *this, [=]() {
+        jobs::RunSync(jobs::Job::CreateFromLambda(itemDone));
+    });
+
     chunkManager->Start();
+    chunkManager1->Start();
 
     m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
         m_writer.Start();

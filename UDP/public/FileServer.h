@@ -40,6 +40,8 @@ namespace udp
 		void StartBucket(ull bucketID);
 		bool CheckBucket(ull bucketID);
 		int m_port = -1;
+
+		ull GetFileId(const Packet& packet) const;
 	public:
 		FileServerObject();
 		virtual ~FileServerObject();
