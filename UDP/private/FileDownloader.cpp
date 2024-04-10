@@ -4,6 +4,7 @@
 #include "JobSystem.h"
 #include "Job.h"
 #include "Jobs.h"
+#include "JSPool.h"
 
 #include "FileManager.h"
 
@@ -17,6 +18,7 @@ namespace
 	udp::FileDownloaderMeta m_downloaderMeta;
 
     jobs::JobSystem* m_js = nullptr;
+    udp::JSPool* m_pool = nullptr;
 }
 
 const udp::FileDownloaderJSMeta& udp::FileDownloaderJSMeta::GetInstance()
@@ -65,8 +67,11 @@ udp::FileDownloaderObject::FileDownloaderObject(
 {
     if (!m_js)
     {
-        m_js = new jobs::JobSystem(FileDownloaderJSMeta::GetInstance(), 3 * 5);
+        m_js = new jobs::JobSystem(FileDownloaderJSMeta::GetInstance(), 4);
     }
+
+    static JSPool pool(4, 3);
+    m_pool = &pool;
 }
 
 udp::FileDownloaderObject::~FileDownloaderObject()
@@ -195,6 +200,8 @@ void udp::FileDownloaderObject::Init()
                 return;
             }
 
+            jobs::JobSystem* js = m_pool->AcquireJS();
+
             auto itemDone = [=]() {
                 --waiting;
                 if (waiting > 0)
@@ -202,10 +209,12 @@ void udp::FileDownloaderObject::Init()
                     return;
                 }
 
+                m_pool->ReleaseJS(js);
+
                 m_done();
             };
 
-            m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+            js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
                 struct sockaddr_in serverAddr;
                 short port = static_cast<short>(m_downloader.m_serverPort);
                 const char* local_host = m_downloader.m_serverIP.c_str();
@@ -251,7 +260,7 @@ void udp::FileDownloaderObject::Init()
             }));
 
 
-            m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+            js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
 
                 ull curReq = 0;
 
@@ -319,7 +328,7 @@ void udp::FileDownloaderObject::Init()
             }));
 
 
-            m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+            js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
                 while (!finished)
                 {
                     Packet pkt;
