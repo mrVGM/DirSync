@@ -40,6 +40,8 @@ namespace udp
 		void Init(int id, const std::string& path);
 		int m_maxLoadedChunks = 1;
 
+		bool GetKBInternal(KB& outKB, ull offset);
+
 	public:
 		int m_id = -1;
 		std::string m_path;

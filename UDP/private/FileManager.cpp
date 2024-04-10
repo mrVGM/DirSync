@@ -109,6 +109,17 @@ void udp::FileEntry::Init(int id, const std::string& path)
 
 bool udp::FileEntry::GetKB(KB& outKB, ull offset)
 {
+	m_getDataMutex.lock();
+
+	bool res = GetKBInternal(outKB, offset);
+
+	m_getDataMutex.unlock();
+
+	return res;
+}
+
+bool udp::FileEntry::GetKBInternal(KB& outKB, ull offset)
+{
 	if (!m_fHandle)
 	{
 		std::wstring str(m_path.begin(), m_path.end());
