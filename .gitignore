@@ -6,4 +6,4 @@ Electron/*
 Electron/resources/*
 !Electron/resources/app
 Electron/resources/app/node_modules
-
+Build/cmake
