@@ -52,22 +52,29 @@ namespace udp
 		std::list<Chunk*> m_buff1;
 		std::list<Chunk*> m_buff2;
 
-		std::list<Chunk*> m_toWrite;
-
 		std::mutex m_mutex;
 		std::binary_semaphore m_getChunksSemaphore{ 0 };
 
+		bool m_running = true;
+
 	public:
 		FileWriter(FileDownloaderObject& downloader);
+		~FileWriter();
 
 		void PushChunk(Chunk* chunk);
 		std::list<Chunk*>& GetReceived();
 		void Start();
+		void Stop();
 	};
 
 	class FileDownloaderObject : public BaseObject, public Endpoint
 	{
+	private:
+		jobs::Job* m_onDestroyed = nullptr;
+
 	public:
+		bool m_running = true;
+
 		unsigned int m_fileId;
 
 		ull m_fileSize = 0;
@@ -98,5 +105,6 @@ namespace udp
 		virtual ~FileDownloaderObject();
 
 		void Init() override;
+		void Shutdown(jobs::Job* onDestroyed);
 	};
 }

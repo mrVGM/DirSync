@@ -81,6 +81,17 @@ udp::FileDownloaderObject::FileDownloaderObject(
 
 udp::FileDownloaderObject::~FileDownloaderObject()
 {
+    if (m_onDestroyed)
+    {
+        jobs::RunSync(m_onDestroyed);
+    }
+}
+
+void udp::FileDownloaderObject::Shutdown(jobs::Job* onDestroyed)
+{
+    m_running = false;
+    m_onDestroyed = onDestroyed;
+    m_writer.Stop();
 }
 
 void udp::FileDownloaderObject::Init()
@@ -237,6 +248,14 @@ void udp::FileDownloaderObject::Init()
             }
         }
 
+        ~ChunkManager()
+        {
+            for (auto it = m_workers.begin(); it != m_workers.end(); ++it)
+            {
+                delete (*it);
+            }
+        }
+
         ull GetPacketID() const
         {
             return 2 * m_downloader.m_fileId + m_reminder;
@@ -316,6 +335,12 @@ void udp::FileDownloaderObject::Init()
 
                 while (!finished)
                 {
+                    if (!m_downloader.m_running)
+                    {
+                        m_bucket.ReleaseSemaphore();
+                        break;
+                    }
+
                     std::list<Packet> toSend;
                     pingMutex.lock();
 
@@ -370,6 +395,11 @@ void udp::FileDownloaderObject::Init()
 
                 while (!m_fullyCovered || !m_workers.empty())
                 {
+                    if (!m_downloader.m_running)
+                    {
+                        break;
+                    }
+
                     std::list<Packet>& packets = m_bucket.GetAccumulated();
 
                     for (auto it = packets.begin(); it != packets.end(); ++it)
@@ -439,8 +469,7 @@ void udp::FileDownloaderObject::Init()
 
 #pragma region Allocations
 
-    ChunkManager* chunkManager = nullptr;
-    ChunkManager* chunkManager1 = nullptr;
+    std::list<ChunkManager*>* managers = new std::list<ChunkManager*>();
 
     int* waiting = new int;
     *waiting = 3;
@@ -458,19 +487,28 @@ void udp::FileDownloaderObject::Init()
 
         delete waiting;
         delete cmCTX;
-        delete chunkManager;
-        delete chunkManager1;
+
+        for (auto it = managers->begin(); it != managers->end(); ++it)
+        {
+            ChunkManager* cur = *it;
+            delete cur;
+        }
+
+        delete managers;
 
         delete this;
     };
 
-    chunkManager = new ChunkManager(*cmCTX , 0, *this, [=]() {
+    ChunkManager* chunkManager = new ChunkManager(*cmCTX , 0, *this, [=]() {
         jobs::RunSync(jobs::Job::CreateFromLambda(itemDone));
     });
 
-    chunkManager1 = new ChunkManager(*cmCTX, 1, *this, [=]() {
+    ChunkManager* chunkManager1 = new ChunkManager(*cmCTX, 1, *this, [=]() {
         jobs::RunSync(jobs::Job::CreateFromLambda(itemDone));
     });
+
+    managers->push_back(chunkManager);
+    managers->push_back(chunkManager1);
 
     jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
         BaseObjectContainer& container = BaseObjectContainer::GetInstance();
@@ -490,7 +528,6 @@ void udp::FileDownloaderObject::Init()
         }));
     }));
 }
-
 
 udp::Chunk::Chunk(ull offset, const FileDownloaderObject& downloader) :
     m_offset(offset)
@@ -587,12 +624,22 @@ udp::FileWriter::FileWriter(FileDownloaderObject& downloader) :
     m_curBuff = &m_buff1;
 }
 
+udp::FileWriter::~FileWriter()
+{
+    std::list<Chunk*>& chunks = GetReceived();
+    for (auto it = chunks.begin(); it != chunks.end(); ++it)
+    {
+        Chunk* cur = *it;
+        delete cur;
+    }
+}
+
 void udp::FileWriter::PushChunk(Chunk* chunk)
 {
     m_mutex.lock();
 
     m_curBuff->push_back(chunk);
-
+    
     m_getChunksSemaphore.release();
 
     m_mutex.unlock();
@@ -613,6 +660,17 @@ std::list<udp::Chunk*>& udp::FileWriter::GetReceived()
     return res;
 }
 
+void udp::FileWriter::Stop()
+{
+    m_mutex.lock();
+
+    m_running = false;
+
+    m_getChunksSemaphore.release();
+
+    m_mutex.unlock();
+}
+
 void udp::FileWriter::Start()
 {
     HANDLE f = CreateFile(
@@ -630,7 +688,7 @@ void udp::FileWriter::Start()
 
     std::list<Chunk*> toWrite;
 
-    while (written < m_downloader.m_fileSize)
+    while (m_running && written < m_downloader.m_fileSize)
     {
         std::list<Chunk*>& chunks = GetReceived();
 
@@ -695,7 +753,11 @@ void udp::FileWriter::Start()
 
             delete cur;
         }
+    }
 
+    for (auto it = toWrite.begin(); it != toWrite.end(); ++it)
+    {
+        delete (*it);
     }
 
     CloseHandle(f);
