@@ -216,6 +216,8 @@ bool udp::FileEntry::GetKBInternal(KB& outKB, ull offset)
 
 void udp::FileEntry::UnloadData()
 {
+	m_getDataMutex.lock();
+
 	if (m_fHandle)
 	{
 		CloseHandle(m_fHandle);
@@ -227,4 +229,7 @@ void udp::FileEntry::UnloadData()
 	}
 
 	m_fHandle = nullptr;
+	m_fileChunks.clear();
+
+	m_getDataMutex.unlock();
 }

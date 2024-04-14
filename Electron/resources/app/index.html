@@ -19,6 +19,13 @@
             flush(document.sysConfig);
         }
 
+        async function shutdownFileServer() {
+            const { shutdownFileServer } = require('./scripts/backend');
+
+            const res = await shutdownFileServer();
+            console.log(res);
+        }
+
         async function test() {
             const { ipcRenderer } = require('electron');
             const argv = await new Promise((resolve, reject) => {

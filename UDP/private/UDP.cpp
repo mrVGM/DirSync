@@ -94,6 +94,15 @@ void udp::Bucket::PushPacket(const Packet& res)
 	m_swapListMutex.unlock();
 }
 
+void udp::Bucket::ReleaseSemaphore()
+{
+	m_swapListMutex.lock();
+
+	m_semaphore.release();
+
+	m_swapListMutex.unlock();
+}
+
 std::list<udp::Packet>& udp::Bucket::GetAccumulated()
 {
 	m_semaphore.acquire();
@@ -152,6 +161,19 @@ void udp::BucketManager::DestroyBucket(ull id)
 	{
 		delete it->second;
 		m_buckets.erase(it);
+	}
+
+	m_mutex.unlock();
+}
+
+void udp::BucketManager::ReleaseAllBuckets()
+{
+	m_mutex.lock();
+
+	for (auto it = m_buckets.begin(); it != m_buckets.end(); ++it)
+	{
+		Bucket* cur = it->second;
+		cur->ReleaseSemaphore();
 	}
 
 	m_mutex.unlock();

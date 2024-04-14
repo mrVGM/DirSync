@@ -141,8 +141,19 @@ async function stop(fileId) {
     return res;
 }
 
+async function shutdownFileServer(fileId) {
+    const send = await getSendFunc();
+
+    const res = send({
+        op: 'shutdown_udp_server'
+    });
+
+    return res;
+}
+
 exports.hashFiles = hashFiles;
 exports.registerFiles = registerFiles;
 exports.runUDPServer = runUDPServer;
 exports.downloadFile = downloadFile;
 exports.stop = stop;
+exports.shutdownFileServer = shutdownFileServer;

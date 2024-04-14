@@ -82,6 +82,7 @@ void jobs::Thread::Boot()
 void jobs::Thread::Stop()
 {
 	m_stopped = true;
+	m_semaphore.release();
 }
 
 bool jobs::Thread::ShouldStop()

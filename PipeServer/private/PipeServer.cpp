@@ -247,6 +247,23 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 		return true;
 	}
 
+	if (op == "shutdown_udp_server")
+	{
+		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+			BaseObject* tmp = container.GetObjectOfClass(udp::FileServerMeta::GetInstance());
+			udp::FileServerObject* fileServer = static_cast<udp::FileServerObject*>(tmp);
+
+			fileServer->Shutdown(jobs::Job::CreateFromLambda([=]() {
+				JSONValue res(ValueType::Object);
+				auto& resMap = res.GetAsObj();
+				resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
+				SendResponse(res);
+			}));
+		}));
+		return true;
+	}
+
 	if (op == "download_file")
 	{
 		unsigned int fileId = std::get<json_parser::JSONNumber>(map.find("file_id")->second.m_payload).ToInt();

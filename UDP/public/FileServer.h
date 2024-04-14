@@ -2,6 +2,8 @@
 
 #include "UDP.h"
 
+#include "Job.h"
+
 #include "BaseObject.h"
 #include "BaseObjectMeta.h"
 
@@ -33,6 +35,8 @@ namespace udp
 	class FileServerObject : public BaseObject, public Endpoint
 	{
 	private:
+		bool m_running = true;
+
 		std::mutex m_checkWorkingBuckets;
 		BucketManager m_bucketManager;
 		std::set<ull> m_workingBuckets;
@@ -49,5 +53,7 @@ namespace udp
 		void Init() override;
 		void StopBucket(ull bucketID);
 		int GetPort() const;
+
+		void Shutdown(jobs::Job* done);
 	};
 }

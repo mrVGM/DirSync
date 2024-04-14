@@ -83,6 +83,11 @@ int udp::FileServerObject::GetPort() const
 
 bool udp::FileServerObject::CheckBucket(ull bucketID)
 {
+    if (!m_running)
+    {
+        return false;
+    }
+
     m_checkWorkingBuckets.lock();
 
     bool res = m_workingBuckets.contains(bucketID);
@@ -154,7 +159,7 @@ void udp::FileServerObject::Init()
     auto startServerJob = [=](FileManagerObject* fileManager, jobs::JobSystem* fileServerJS, jobs::JobSystem* handlersJS) {
         fileServerJS->ScheduleJob(
             jobs::Job::CreateFromLambda([=]() {
-                while (true)
+                while (m_running)
                 {
                     Packet pkt;
                     struct sockaddr_in SenderAddr;
@@ -246,5 +251,33 @@ void udp::FileServerObject::Init()
         jobs::JobSystem* handlersJS = static_cast<jobs::JobSystem*>(tmp);
 
         startServerJob(fileManager, fileServerJS, handlersJS);
+    }));
+}
+
+void udp::FileServerObject::Shutdown(jobs::Job* done)
+{
+    m_running = false;
+    closesocket(m_socket);
+
+    m_bucketManager.ReleaseAllBuckets();
+
+    jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+
+        BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+        BaseObject* tmp = container.GetObjectOfClass(FileManagerMeta::GetInstance());
+
+        FileManagerObject* fileManager = static_cast<FileManagerObject*>(tmp);
+
+        tmp = container.GetObjectOfClass(FileServerJSMeta::GetInstance());
+        jobs::JobSystem* fileServerJS = static_cast<jobs::JobSystem*>(tmp);
+
+        tmp = container.GetObjectOfClass(FileServerHandlersJSMeta::GetInstance());
+        jobs::JobSystem* handlersJS = static_cast<jobs::JobSystem*>(tmp);
+
+        delete fileServerJS;
+        delete handlersJS;
+        delete fileManager;
+
+        jobs::RunSync(done);
     }));
 }

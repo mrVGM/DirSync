@@ -73,6 +73,8 @@ namespace udp
 
 		void PushPacket(const Packet& res);
 		std::list<Packet>& GetAccumulated();
+
+		void ReleaseSemaphore();
 	};
 
 	class BucketManager
@@ -82,9 +84,11 @@ namespace udp
 		std::map<ull, Bucket*> m_buckets;
 
 	public:
+		~BucketManager();
+
 		Bucket* GetOrCreateBucket(ull id, bool& justCreated);
 		void DestroyBucket(ull id);
-		~BucketManager();
+		void ReleaseAllBuckets();
 	};
 
 	class Endpoint
