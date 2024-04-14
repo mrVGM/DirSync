@@ -30,8 +30,6 @@ namespace
 	pipe_server::ServerMeta m_instance;
 	jobs::JobSystem* m_serverJS = nullptr;
 	jobs::JobSystem* m_serverResponseJS = nullptr;
-
-	udp::FileManagerObject* m_fileManager = nullptr;
 }
 
 pipe_server::ServerMeta::ServerMeta() :
@@ -209,19 +207,17 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 		int maxLoadedChunks = std::get<json_parser::JSONNumber>(map.find("max_loaded_chunks")->second.m_payload).ToInt();
 
 		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
-			if (!m_fileManager)
+			
+			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+			BaseObject* obj = container.GetObjectOfClass(udp::FileManagerMeta::GetInstance());
+			udp::FileManagerObject* fileManager = static_cast<udp::FileManagerObject*>(obj);
+
+			if (!fileManager)
 			{
-				BaseObjectContainer& container = BaseObjectContainer::GetInstance();
-				BaseObject* obj = container.GetObjectOfClass(udp::FileManagerMeta::GetInstance());
-
-				m_fileManager = static_cast<udp::FileManagerObject*>(obj);
-				if (!m_fileManager)
-				{
-					m_fileManager = new udp::FileManagerObject();
-				}
+				fileManager = new udp::FileManagerObject();
 			}
-
-			m_fileManager->RegisterFile(fileId, file, maxLoadedChunks);
+			
+			fileManager->RegisterFile(fileId, file, maxLoadedChunks);
 			JSONValue res(ValueType::Object);
 			auto& resMap = res.GetAsObj();
 			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));

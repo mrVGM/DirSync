@@ -85,12 +85,13 @@ function init() {
                 return;
             }
 
+            const initialDisplay = panel.tagged.run_server.style.display;
             panel.tagged.run_server.style.display = 'none';
 
-            await app.locks.dir();
-            await app.locks.running();
+            const unlockDir = await app.locks.dir();
+            const unlockRunning = await app.locks.running();
 
-            const { hashFiles, registerFiles, stop } = require('../backend');
+            const { hashFiles, registerFiles, stop, shutdownFileServer } = require('../backend');
             const { getFileList } = require('../files');
 
             const dir = await dirModule.interface.getDir();
@@ -107,12 +108,22 @@ function init() {
             
             await registerFiles(dir, fileList);
 
-            const { startPeerServer, getTCPServer } = require('../peers');
-            const fileServer = await startPeerServer(netModule.interface.getPCName);
+            const { startPeerServer } = require('../peers');
+            const { fileServer, tcpServerProm } = await startPeerServer(netModule.interface.getPCName);
             
             log('Server running!');
 
-            const { setHandler, send } = await getTCPServer();
+            const { setHandler, send, setOnDisconnect } = await tcpServerProm;
+
+            setOnDisconnect(async () => {
+                await shutdownFileServer();
+                unlockDir();
+                unlockRunning();
+                panel.tagged.bar_space.innerHTML = '';
+                log('Server shut down!');
+
+                panel.tagged.run_server.style.display = initialDisplay;
+            });
 
             setHandler('records', json => {
                 if (!json.slice) {
@@ -195,8 +206,8 @@ function init() {
 
             panel.tagged.download_files.style.display = 'none';
 
-            await app.locks.dir();
-            await app.locks.running();
+            const unlockDir = await app.locks.dir();
+            const unlockRunning = await app.locks.running();
 
             const { hashFiles, downloadFile, stop } = require('../backend');
 

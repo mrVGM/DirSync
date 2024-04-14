@@ -1,32 +1,32 @@
 const { initPeerServer, initPeerClient } = require('./udpServer');
 const { runUDPServer } = require('./backend')
 
-let _started = false;
-let _resolve;
-
-const _tcpServer = new Promise((resolve, reject) => {
-    _resolve = resolve;
-});
-
 async function startPeerServer(getPCName) {
-    if (_started) {
-        return;
-    }
-    _started = true;
+    let tcpResolve;
+    let tcpProm = new Promise(resolve => {
+        tcpResolve = res => resolve(res);
+    });
 
     const { initServer } = require('./tcpServer');
     const tcpServer = await initServer(socket => {
+
+        server.close();
+
         const handlers = { };
 
-        _resolve({
+        let close;
+
+        tcpResolve({
             send: data => {
                 socket.write(JSON.stringify(data));
             },
             setHandler: (req, handler) => {
                 handlers[req] = handler;
-            }
+            },
+            setOnDisconnect: handler => {
+                close = handler;
+            },
         });
-
 
         socket.on('data', data => {
             const json = JSON.parse(data.toString());
@@ -42,11 +42,10 @@ async function startPeerServer(getPCName) {
         });
 
         socket.on('close', () => {
-            console.log('closed');
+            tcpServer.close();
+            close();
         });
     });
-
-
 
     const fileServer = await runUDPServer();
 
@@ -64,7 +63,10 @@ async function startPeerServer(getPCName) {
 
     const server = await initPeerServer(peerServer);
 
-    return fileServer;
+    return {
+        fileServer: fileServer,
+        tcpServerProm: tcpProm
+    };
 }
 
 function findPeers(net) {
@@ -150,4 +152,3 @@ function findPeers(net) {
 
 exports.startPeerServer = startPeerServer;
 exports.findPeers = findPeers;
-exports.getTCPServer = () => _tcpServer;
