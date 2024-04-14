@@ -40,6 +40,23 @@ udp::FileDownloaderMeta::FileDownloaderMeta() :
 {
 }
 
+void udp::FileDownloaderObject::ReleaseJS()
+{
+    BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+
+    BaseObject* tmp = container.GetObjectOfClass(FileDownloaderJSMeta::GetInstance());
+    if (tmp)
+    {
+        delete tmp;
+    }
+
+    tmp = container.GetObjectOfClass(JSPoolMeta::GetInstance());
+    if (tmp)
+    {
+        delete tmp;
+    }
+}
+
 udp::FileDownloaderObject::FileDownloaderObject(
     int serverPort,
     const std::string& serverIP,

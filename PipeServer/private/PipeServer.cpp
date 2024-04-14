@@ -287,6 +287,8 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 
 					delete left;
 
+					udp::FileDownloaderObject::ReleaseJS();
+
 					JSONValue res(ValueType::Object);
 					auto& resMap = res.GetAsObj();
 					resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));

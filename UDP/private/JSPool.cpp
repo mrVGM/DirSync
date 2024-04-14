@@ -38,14 +38,8 @@ udp::JSPool::~JSPool()
 	for (auto it = m_pool.begin(); it != m_pool.end(); ++it)
 	{
 		jobs::JobSystem* cur = *it;
-		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
-			delete cur;
-		}));
+		delete cur;
 	}
-
-	jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
-		delete this;
-	}));
 }
 
 jobs::JobSystem* udp::JSPool::AcquireJS()

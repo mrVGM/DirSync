@@ -91,6 +91,8 @@ namespace udp
 
 		jobs::Job* m_done = nullptr;
 
+		static void ReleaseJS();
+
 		FileDownloaderObject(
 			int serverPort,
 			const std::string& serverIP,
