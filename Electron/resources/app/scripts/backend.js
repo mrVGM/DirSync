@@ -151,9 +151,20 @@ async function shutdownFileServer(fileId) {
     return res;
 }
 
+async function shutdownDownloaders(fileId) {
+    const send = await getSendFunc();
+
+    const res = send({
+        op: 'shutdown_downloaders'
+    });
+
+    return res;
+}
+
 exports.hashFiles = hashFiles;
 exports.registerFiles = registerFiles;
 exports.runUDPServer = runUDPServer;
 exports.downloadFile = downloadFile;
 exports.stop = stop;
 exports.shutdownFileServer = shutdownFileServer;
+exports.shutdownDownloaders = shutdownDownloaders;

@@ -26,6 +26,13 @@
             console.log(res);
         }
 
+        async function shutdownDownloaders() {
+            const { shutdownDownloaders } = require('./scripts/backend');
+
+            const res = await shutdownDownloaders();
+            console.log(res);
+        }
+
         async function test() {
             const { ipcRenderer } = require('electron');
             const argv = await new Promise((resolve, reject) => {

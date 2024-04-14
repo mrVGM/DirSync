@@ -264,6 +264,40 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 		return true;
 	}
 
+	if (op == "shutdown_downloaders")
+	{
+		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+			std::list<BaseObject*> downloaders;
+
+			container.GetAllObjectsOfClass(udp::FileDownloaderMeta::GetInstance(), downloaders);
+
+			int* left = new int;
+			*left = downloaders.size();
+
+			for (auto it = downloaders.begin(); it != downloaders.end(); ++it)
+			{
+				udp::FileDownloaderObject* cur = static_cast<udp::FileDownloaderObject*>(*it);
+				cur->Shutdown(jobs::Job::CreateFromLambda([=]() {
+					--(*left);
+					if (*left > 0)
+					{
+						return;
+					}
+
+					delete left;
+
+					JSONValue res(ValueType::Object);
+					auto& resMap = res.GetAsObj();
+					resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
+					SendResponse(res);
+				}));
+			}
+		}));
+
+		return true;
+	}
+
 	if (op == "download_file")
 	{
 		unsigned int fileId = std::get<json_parser::JSONNumber>(map.find("file_id")->second.m_payload).ToInt();
