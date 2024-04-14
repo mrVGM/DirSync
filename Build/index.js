@@ -12,8 +12,10 @@ function logRed(message) {
 
 async function build() {
     const cmakePath = path.join(__dirname, 'cmake/bin/cmake.exe').normalize();
+    const electronPath = path.join(__dirname, '../Electron').normalize();
     const srcPath = path.join(__dirname, '..').normalize();
     const outPath = path.join(__dirname, 'out').normalize();
+    const readyPath = path.join(__dirname, 'dirsync');
 
     const cmakeFound = await new Promise(resolve => {
         fs.exists(cmakePath, exists => {
@@ -23,6 +25,18 @@ async function build() {
 
     if (!cmakeFound) {
         logRed(`Couldn't find "${cmakePath}"`);
+        return;
+    }
+
+    const electonFound = await new Promise(resolve => {
+        const electronExe = path.join(electronPath, 'electron.exe').normalize();
+        fs.exists(electronExe, exists => {
+            resolve(exists);
+        });
+    });
+
+    if (!electonFound) {
+        logRed(`Couldn't find the Electron binaries at "${electronPath}"`);
         return;
     }
 
@@ -39,6 +53,29 @@ async function build() {
 
         fs.rm(
             outPath,
+            {
+                recursive: true,
+                force: true
+            },
+            () => {
+                resolve();
+            }
+        );
+    });
+
+    await new Promise(async resolve => {
+        const folderExists = await new Promise(resolve => {
+            fs.exists(readyPath, exists => {
+                resolve(exists);
+            });
+        });
+
+        if (!folderExists) {
+            resolve();
+        }
+
+        fs.rm(
+            readyPath,
             {
                 recursive: true,
                 force: true
@@ -98,13 +135,35 @@ async function build() {
     }
 
     await new Promise(resolve => {
+        fs.mkdir(readyPath, err => {
+            resolve();
+        })
+    });
+    
+    await new Promise(resolve => {
         const mainExePath = path.join(__dirname, 'out/Main/Release/Main.exe').normalize();
-        const dirsyncPath = path.join(__dirname, 'dirsync.exe').normalize();
+        const dirsyncPath = path.join(readyPath, 'dirsync.exe').normalize();
         fs.rename(mainExePath, dirsyncPath, () => {        
             resolve();
         });
     });
-
+    
+    logGreen('dirsync.exe copied');
+    
+    console.log('Copying Electron binaries');
+    await new Promise(resolve => {
+        fs.cp(
+            electronPath,
+            path.join(readyPath, 'Electron'),
+            {
+                recursive: true
+            },
+            err => {
+                resolve();
+            }
+        );
+    });
+    
     logGreen('Success');
 }
 
