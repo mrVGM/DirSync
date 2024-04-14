@@ -17,9 +17,6 @@ namespace
 	udp::FileServerJSMeta m_serverJSMeta;
 	udp::FileServerHandlersJSMeta m_serverHandlersJSMeta;
 	udp::FileServerMeta m_serverMeta;
-
-    jobs::JobSystem* m_serverJS = nullptr;
-    jobs::JobSystem* m_serverHandlersJS = nullptr;
 }
 
 const udp::FileServerJSMeta& udp::FileServerJSMeta::GetInstance()
@@ -51,13 +48,6 @@ const udp::FileServerMeta& udp::FileServerMeta::GetInstance()
 udp::FileServerMeta::FileServerMeta() :
 	BaseObjectMeta(nullptr)
 {
-    BaseObjectContainer& container = BaseObjectContainer::GetInstance();
-
-    BaseObject* tmp = container.GetObjectOfClass(FileManagerMeta::GetInstance());
-    if (!tmp)
-    {
-        new FileManagerObject();
-    }
 }
 
 void udp::FileServerObject::StartBucket(ull bucketID)
@@ -110,13 +100,25 @@ ull udp::FileServerObject::GetFileId(const Packet& packet) const
 udp::FileServerObject::FileServerObject() :
 	BaseObject(FileServerMeta::GetInstance())
 {
-    if (m_serverJS)
+    BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+
+    BaseObject* tmp = container.GetObjectOfClass(FileManagerMeta::GetInstance());
+    if (!tmp)
     {
-        throw "Can't create another File Server!";
+        new FileManagerObject();
     }
 
-    m_serverJS = new jobs::JobSystem(FileServerJSMeta::GetInstance(), 1);
-    m_serverHandlersJS = new jobs::JobSystem(FileServerHandlersJSMeta::GetInstance(), 2 * statics::MAX_PARALLEL_DOWNLOADS);
+    tmp = container.GetObjectOfClass(FileServerJSMeta::GetInstance());
+    if (!tmp)
+    {
+        new jobs::JobSystem(FileServerJSMeta::GetInstance(), 1);
+    }
+
+    tmp = container.GetObjectOfClass(FileServerHandlersJSMeta::GetInstance());
+    if (!tmp)
+    {
+        new jobs::JobSystem(FileServerHandlersJSMeta::GetInstance(), 2 * statics::MAX_PARALLEL_DOWNLOADS);
+    }
 }
 
 udp::FileServerObject::~FileServerObject()
@@ -149,8 +151,8 @@ void udp::FileServerObject::Init()
 
     m_port = static_cast<unsigned short>(htons(serverAddr.sin_port));
 
-    auto startServerJob = [=](FileManagerObject* fileManager) {
-        m_serverJS->ScheduleJob(
+    auto startServerJob = [=](FileManagerObject* fileManager, jobs::JobSystem* fileServerJS, jobs::JobSystem* handlersJS) {
+        fileServerJS->ScheduleJob(
             jobs::Job::CreateFromLambda([=]() {
                 while (true)
                 {
@@ -177,7 +179,7 @@ void udp::FileServerObject::Init()
 
                         sockaddr_in* senderTmp = new sockaddr_in();
                         *senderTmp = SenderAddr;
-                        m_serverHandlersJS->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+                        handlersJS->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
                             sockaddr_in sender = *senderTmp;
                             delete senderTmp;
 
@@ -236,6 +238,13 @@ void udp::FileServerObject::Init()
         BaseObject* tmp = container.GetObjectOfClass(FileManagerMeta::GetInstance());
 
         FileManagerObject* fileManager = static_cast<FileManagerObject*>(tmp);
-        startServerJob(fileManager);
+
+        tmp = container.GetObjectOfClass(FileServerJSMeta::GetInstance());
+        jobs::JobSystem* fileServerJS = static_cast<jobs::JobSystem*>(tmp);
+
+        tmp = container.GetObjectOfClass(FileServerHandlersJSMeta::GetInstance());
+        jobs::JobSystem* handlersJS = static_cast<jobs::JobSystem*>(tmp);
+
+        startServerJob(fileManager, fileServerJS, handlersJS);
     }));
 }
