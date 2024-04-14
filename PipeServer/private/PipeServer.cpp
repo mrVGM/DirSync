@@ -251,6 +251,8 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 			udp::FileServerObject* fileServer = static_cast<udp::FileServerObject*>(tmp);
 
 			fileServer->Shutdown(jobs::Job::CreateFromLambda([=]() {
+				delete fileServer;
+
 				JSONValue res(ValueType::Object);
 				auto& resMap = res.GetAsObj();
 				resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
