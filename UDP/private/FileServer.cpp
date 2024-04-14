@@ -3,8 +3,11 @@
 #include "JobSystemMeta.h"
 #include "JobSystem.h"
 #include "Job.h"
+#include "Jobs.h"
 
 #include "FileManager.h"
+
+#include "BaseObjectContainer.h"
 
 #include <WinSock2.h>
 #include <iostream>
@@ -17,8 +20,6 @@ namespace
 
     jobs::JobSystem* m_serverJS = nullptr;
     jobs::JobSystem* m_serverHandlersJS = nullptr;
-
-    udp::FileManagerObject* m_fileManger = nullptr;
 }
 
 const udp::FileServerJSMeta& udp::FileServerJSMeta::GetInstance()
@@ -50,9 +51,12 @@ const udp::FileServerMeta& udp::FileServerMeta::GetInstance()
 udp::FileServerMeta::FileServerMeta() :
 	BaseObjectMeta(nullptr)
 {
-    if (!m_fileManger)
+    BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+
+    BaseObject* tmp = container.GetObjectOfClass(FileManagerMeta::GetInstance());
+    if (!tmp)
     {
-        m_fileManger = new FileManagerObject();
+        new FileManagerObject();
     }
 }
 
@@ -145,81 +149,93 @@ void udp::FileServerObject::Init()
 
     m_port = static_cast<unsigned short>(htons(serverAddr.sin_port));
 
-    m_serverJS->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
-        while (true)
-        {
-            Packet pkt;
-            struct sockaddr_in SenderAddr;
-            int senderAddrSize = sizeof(SenderAddr);
+    auto startServerJob = [=](FileManagerObject* fileManager) {
+        m_serverJS->ScheduleJob(
+            jobs::Job::CreateFromLambda([=]() {
+                while (true)
+                {
+                    Packet pkt;
+                    struct sockaddr_in SenderAddr;
+                    int senderAddrSize = sizeof(SenderAddr);
 
-            int bytes_received = recvfrom(m_socket, reinterpret_cast<char*>(&pkt), sizeof(pkt), 0 /* no flags*/, (SOCKADDR*)&SenderAddr, &senderAddrSize);
-            if (bytes_received == SOCKET_ERROR) {
-                std::cout << "recvfrom failed with error" << WSAGetLastError();
-                continue;
-            }
+                    int bytes_received = recvfrom(m_socket, reinterpret_cast<char*>(&pkt), sizeof(pkt), 0 /* no flags*/, (SOCKADDR*)&SenderAddr, &senderAddrSize);
+                    if (bytes_received == SOCKET_ERROR) {
+                        std::cout << "recvfrom failed with error" << WSAGetLastError();
+                        continue;
+                    }
 
-            ull bucketId = pkt.m_id;
-            bool justCreated;
-            Bucket* bucket = m_bucketManager.GetOrCreateBucket(bucketId, justCreated);
-            bucket->PushPacket(pkt);
+                    ull bucketId = pkt.m_id;
+                    bool justCreated;
+                    Bucket* bucket = m_bucketManager.GetOrCreateBucket(bucketId, justCreated);
+                    bucket->PushPacket(pkt);
 
-            FileEntry* file = m_fileManger->GetFile(GetFileId(pkt));
+                    FileEntry* file = fileManager->GetFile(GetFileId(pkt));
 
-            if (justCreated)
-            {
-                StartBucket(bucketId);
-
-                sockaddr_in* senderTmp = new sockaddr_in();
-                *senderTmp = SenderAddr;
-                m_serverHandlersJS->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
-                    sockaddr_in sender = *senderTmp;
-                    delete senderTmp;
-
-                    while (CheckBucket(bucketId))
+                    if (justCreated)
                     {
-                        std::list<Packet>& packets = bucket->GetAccumulated();
+                        StartBucket(bucketId);
 
-                        const sockaddr* addr = reinterpret_cast<const sockaddr*>(&sender);
+                        sockaddr_in* senderTmp = new sockaddr_in();
+                        *senderTmp = SenderAddr;
+                        m_serverHandlersJS->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+                            sockaddr_in sender = *senderTmp;
+                            delete senderTmp;
 
-                        for (auto it = packets.begin(); it != packets.end(); ++it)
-                        {
-                            Packet& cur = *it;
-                            switch (cur.m_packetType.GetPacketType())
+                            while (CheckBucket(bucketId))
                             {
-                            case EPacketType::Ping:
-                                sendto(m_socket, reinterpret_cast<const char*>(&cur), sizeof(Packet), 0, addr, sizeof(sockaddr_in));
-                                break;
+                                std::list<Packet>& packets = bucket->GetAccumulated();
 
-                            case EPacketType::Bitmask:
+                                const sockaddr* addr = reinterpret_cast<const sockaddr*>(&sender);
+
+                                for (auto it = packets.begin(); it != packets.end(); ++it)
                                 {
-                                    for (size_t i = 0; i < 8 * sizeof(KB); ++i)
+                                    Packet& cur = *it;
+                                    switch (cur.m_packetType.GetPacketType())
                                     {
-                                        Packet toSend = cur;
-                                        toSend.m_offset = cur.m_offset + i;
-                                        toSend.m_packetType = PacketType::m_full;
+                                    case EPacketType::Ping:
+                                        sendto(m_socket, reinterpret_cast<const char*>(&cur), sizeof(Packet), 0, addr, sizeof(sockaddr_in));
+                                        break;
 
-                                        if (cur.m_payload.GetBitState(i))
+                                    case EPacketType::Bitmask:
+                                    {
+                                        for (size_t i = 0; i < 8 * sizeof(KB); ++i)
                                         {
-                                            file->GetKB(toSend.m_payload, cur.m_offset + i);
-                                            sendto(m_socket, reinterpret_cast<const char*>(&toSend), sizeof(Packet), 0, addr, sizeof(sockaddr_in));
+                                            Packet toSend = cur;
+                                            toSend.m_offset = cur.m_offset + i;
+                                            toSend.m_packetType = PacketType::m_full;
+
+                                            if (cur.m_payload.GetBitState(i))
+                                            {
+                                                file->GetKB(toSend.m_payload, cur.m_offset + i);
+                                                sendto(m_socket, reinterpret_cast<const char*>(&toSend), sizeof(Packet), 0, addr, sizeof(sockaddr_in));
+                                            }
                                         }
                                     }
+                                    break;
+                                    }
                                 }
-                                break;
+
+                                packets.clear();
                             }
-                        }
 
-                        packets.clear();
+                            m_bucketManager.DestroyBucket(bucketId);
+
+                            if (bucketId % 2 == 0)
+                            {
+                                file->UnloadData();
+                            }
+                            }));
                     }
+                }
+            })
+        );
+    };
 
-                    m_bucketManager.DestroyBucket(bucketId);
+    jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+        BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+        BaseObject* tmp = container.GetObjectOfClass(FileManagerMeta::GetInstance());
 
-                    if (bucketId % 2 == 0)
-                    {
-                        file->UnloadData();
-                    }
-                }));
-            }
-        }
+        FileManagerObject* fileManager = static_cast<FileManagerObject*>(tmp);
+        startServerJob(fileManager);
     }));
 }
