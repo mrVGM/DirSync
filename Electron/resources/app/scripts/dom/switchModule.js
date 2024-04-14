@@ -13,11 +13,13 @@ function init() {
 
         const mainMod = await app.modules.main;
         const netMod = await app.modules.net;
+        const dirMod = await app.modules.dir;
 
         mainMod.tagged.run_server.style.display = checked ? '' : 'none';
         mainMod.tagged.download_files.style.display = checked ? 'none' : '';
 
         netMod.interface.changeMode(checked);
+        dirMod.interface.changeMode(checked);
     }
 
     updateMode();
@@ -43,7 +45,9 @@ function init() {
         updateMode();
     });
 
-    panel.interface = {};
+    panel.interface = {
+        isServer: () => panel.tagged.input.checked
+    };
 
     return panel;
 }

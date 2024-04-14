@@ -77,7 +77,9 @@ function init() {
             }
             unlockModal();
 
-            if (!dirModule.interface.isValidDirChosen()) {
+            const isValidDir = await dirModule.interface.isValidDirChosen();
+
+            if (!isValidDir) {
                 const notification = await app.modules.notification;
                 notification.interface.show('Please choose a valid directory!');
                 return;
@@ -91,7 +93,7 @@ function init() {
             const { hashFiles, registerFiles, stop } = require('../backend');
             const { getFileList } = require('../files');
 
-            const dir = dirModule.interface.getDir();
+            const dir = await dirModule.interface.getDir();
             const fileList = await getFileList(dir);
             
             const tracker = {
@@ -184,7 +186,8 @@ function init() {
                 return;
             }
 
-            if (!dirModule.interface.isValidDirChosen()) {
+            const isValidDir = await dirModule.interface.isValidDirChosen();
+            if (!isValidDir) {
                 const notification = await app.modules.notification;
                 notification.interface.show('Please choose a valid directory!');
                 return;
@@ -229,7 +232,7 @@ function init() {
 
 
             const path = require('path');
-            const rootDir = dirModule.interface.getDir();
+            const rootDir = await dirModule.interface.getDir();
 
             const tracker = {
                 progress: p => {

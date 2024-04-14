@@ -6,13 +6,35 @@ const { flushPrefs } = require('../files');
 const fs = require('fs');
 
 function init() {
+    const prefs = document.prefs;
+
     const panel = getPanel();
     const dirButton = render('button');
 
     panel.tagged.dir_button.appendChild(dirButton.element);
 
-    let chosenDir;
-    function updateDir() {
+    async function getChosenDir() {
+        const switchModule = await app.modules.modeSwitch;
+
+        const isServer = switchModule.interface.isServer();
+        let dirProp = isServer ? 'srcDir' : 'dstDir';
+
+        const res = prefs[dirProp];
+        return res;
+    }
+
+    async function setChosenDir(dir) {
+        const switchModule = await app.modules.modeSwitch;
+
+        const isServer = switchModule.interface.isServer();
+        let dirProp = isServer ? 'srcDir' : 'dstDir';
+
+        prefs[dirProp] = dir;
+    }
+
+    async function updateDir() {
+        const chosenDir = await getChosenDir();
+
         if (!chosenDir) {
             dirButton.tagged.name.innerHTML = 'Choose Dir';
             return;
@@ -21,33 +43,37 @@ function init() {
         dirButton.tagged.name.innerHTML = chosenDir;
     }
 
-    const prefs = document.prefs;
-
-    let isValidDir = false;
+    async function isValidDirChosen() {
+        const res = await checkValidDir();
+        return res;
+    }
 
     async function checkValidDir() {
-        isValidDir = await new Promise(async (resolve, reject) => {
+        const isValidDir = await new Promise(async (resolve, reject) => {
 
-            if (!prefs.dir) {
+            const switchModule = await app.modules.modeSwitch;
+
+            const isServer = switchModule.interface.isServer();
+            let dirProp = isServer ? 'srcDir' : 'dstDir';
+
+            if (!prefs[dirProp]) {
                 resolve(false);
                 return;
             }
 
-            fs.exists(prefs.dir, exists => {
+            fs.exists(prefs[dirProp], exists => {
                 if (!exists) {
                     resolve(false);
                 }
 
-                fs.stat(prefs.dir, (err, stats) => {
+                fs.stat(prefs[dirProp], (err, stats) => {
                     resolve(stats.isDirectory());
                 });
             });
         });
 
-        if (isValidDir) {
-            chosenDir = prefs.dir;
-        }
-        updateDir();
+        await updateDir();
+        return isValidDir;
     }
     checkValidDir();
 
@@ -80,7 +106,7 @@ function init() {
         unlockDir();
 
 
-        let val = chosenDir;
+        let val = await getChosenDir();
         const dir = await new Promise((resolve, reject) => {
             selectDirCB = dir => {
                 resolve(dir);
@@ -92,15 +118,16 @@ function init() {
             val = dir[0];
         }
 
-        prefs.dir = val;
+        await setChosenDir(val);
         await checkValidDir();
 
         flushPrefs(prefs);
     };
 
     panel.interface = {
-        isValidDirChosen: () => isValidDir,
-        getDir: () => chosenDir,
+        isValidDirChosen: isValidDirChosen,
+        getDir: getChosenDir,
+        changeMode: updateDir
     };
 
     return panel;
