@@ -1,5 +1,8 @@
 #pragma once
 
+#include "BaseObjectMeta.h"
+#include "BaseObject.h"
+
 #include "Common.h"
 
 #include "JobSystem.h"
@@ -9,7 +12,14 @@
 
 namespace udp
 {
-	class JSPool
+	class JSPoolMeta : public BaseObjectMeta
+	{
+	public:
+		static const JSPoolMeta& GetInstance();
+		JSPoolMeta();
+	};
+
+	class JSPool : public BaseObject
 	{
 	private:
 		std::mutex m_mutex;
@@ -17,6 +27,7 @@ namespace udp
 
 	public:
 		JSPool(size_t poolSize, size_t jsSize);
+		virtual ~JSPool();
 
 		jobs::JobSystem* AcquireJS();
 		void ReleaseJS(jobs::JobSystem* js);

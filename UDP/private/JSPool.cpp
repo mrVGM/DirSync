@@ -1,8 +1,26 @@
 #include "JSPool.h"
 
 #include "JobSystemMeta.h"
+#include "Job.h"
+#include "Jobs.h"
 
-udp::JSPool::JSPool(size_t poolSize, size_t jsSize)
+namespace
+{
+	udp::JSPoolMeta m_jsPoolMeta;
+}
+
+const udp::JSPoolMeta& udp::JSPoolMeta::GetInstance()
+{
+	return m_jsPoolMeta;
+}
+
+udp::JSPoolMeta::JSPoolMeta() :
+	BaseObjectMeta(nullptr)
+{
+}
+
+udp::JSPool::JSPool(size_t poolSize, size_t jsSize) :
+	BaseObject(JSPoolMeta::GetInstance())
 {
 	m_mutex.lock();
 	
@@ -13,6 +31,21 @@ udp::JSPool::JSPool(size_t poolSize, size_t jsSize)
 	}
 
 	m_mutex.unlock();
+}
+
+udp::JSPool::~JSPool()
+{
+	for (auto it = m_pool.begin(); it != m_pool.end(); ++it)
+	{
+		jobs::JobSystem* cur = *it;
+		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+			delete cur;
+		}));
+	}
+
+	jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+		delete this;
+	}));
 }
 
 jobs::JobSystem* udp::JSPool::AcquireJS()
@@ -40,4 +73,3 @@ void udp::JSPool::ReleaseJS(jobs::JobSystem* js)
 
 	m_mutex.unlock();
 }
-

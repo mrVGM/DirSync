@@ -8,6 +8,8 @@
 
 #include "FileManager.h"
 
+#include "BaseObjectContainer.h"
+
 #include <queue>
 #include <iostream>
 #include <WinSock2.h>
@@ -16,9 +18,6 @@ namespace
 {
 	udp::FileDownloaderJSMeta m_downloaderJSMeta;
 	udp::FileDownloaderMeta m_downloaderMeta;
-
-    jobs::JobSystem* m_js = nullptr;
-    udp::JSPool* m_pool = nullptr;
 }
 
 const udp::FileDownloaderJSMeta& udp::FileDownloaderJSMeta::GetInstance()
@@ -64,13 +63,20 @@ udp::FileDownloaderObject::FileDownloaderObject(
     m_writer(*this),
     m_done(done)
 {
-    if (!m_js)
+    BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+
+    BaseObject* tmp = container.GetObjectOfClass(FileDownloaderJSMeta::GetInstance());
+    if (!tmp)
     {
-        m_js = new jobs::JobSystem(FileDownloaderJSMeta::GetInstance(), statics::MAX_PARALLEL_DOWNLOADS);
+        new jobs::JobSystem(FileDownloaderJSMeta::GetInstance(), statics::MAX_PARALLEL_DOWNLOADS);
     }
 
-    static JSPool pool(2 * statics::MAX_PARALLEL_DOWNLOADS, 3);
-    m_pool = &pool;
+    tmp = container.GetObjectOfClass(JSPoolMeta::GetInstance());
+
+    if (!tmp)
+    {
+        new JSPool(2 * statics::MAX_PARALLEL_DOWNLOADS, 3);
+    }
 }
 
 udp::FileDownloaderObject::~FileDownloaderObject()
@@ -274,7 +280,7 @@ void udp::FileDownloaderObject::Init()
             }
         }
 
-        void Start()
+        void Start(JSPool* pool)
         {
             SOCKET sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
             if (sock == INVALID_SOCKET) {
@@ -282,7 +288,7 @@ void udp::FileDownloaderObject::Init()
                 return;
             }
 
-            jobs::JobSystem* js = m_pool->AcquireJS();
+            jobs::JobSystem* js = pool->AcquireJS();
 
             auto itemDone = [=]() {
                 --waiting;
@@ -291,7 +297,7 @@ void udp::FileDownloaderObject::Init()
                     return;
                 }
 
-                m_pool->ReleaseJS(js);
+                pool->ReleaseJS(js);
 
                 m_done();
             };
@@ -466,12 +472,22 @@ void udp::FileDownloaderObject::Init()
         jobs::RunSync(jobs::Job::CreateFromLambda(itemDone));
     });
 
-    chunkManager->Start();
-    chunkManager1->Start();
+    jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+        BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+        BaseObject* tmp = container.GetObjectOfClass(JSPoolMeta::GetInstance());
 
-    m_js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
-        m_writer.Start();
-        jobs::RunSync(jobs::Job::CreateFromLambda(itemDone));
+        JSPool* pool = static_cast<JSPool*>(tmp);
+
+        chunkManager->Start(pool);
+        chunkManager1->Start(pool);
+
+        tmp = container.GetObjectOfClass(FileDownloaderJSMeta::GetInstance());
+        jobs::JobSystem* js = static_cast<jobs::JobSystem*>(tmp);
+
+        js->ScheduleJob(jobs::Job::CreateFromLambda([=]() {
+            m_writer.Start();
+            jobs::RunSync(jobs::Job::CreateFromLambda(itemDone));
+        }));
     }));
 }
 
