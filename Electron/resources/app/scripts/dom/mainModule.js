@@ -109,78 +109,78 @@ function init() {
             await registerFiles(dir, fileList);
 
             const { startPeerServer } = require('../peers');
-            const { fileServer, tcpServerProm } = await startPeerServer(netModule.interface.getPCName);
+            const { fileServer, tcpServer } = await startPeerServer(
+                netModule.interface.getPCName,
+                async json => {
+                    const { req } = json;
+
+                    if (req === 'records') {
+                        if (!json.slice) {
+                            return { numFiles: hashed.length };
+                        }
+
+                        return hashed.slice(json.slice[0], json.slice[1]);
+                    }
+
+                    if (req === 'fileServer') {
+                        return fileServer;
+                    }
+
+                    if (req === 'stop') {
+                        await stop(json.fileId);
+                        return { res: 'bucket_stopped' };
+                    };
+
+                    if (req === 'progress') {
+                        updateOveralProgress(json.overal);
+
+                        if (json.overal[0] >= json.overal[1]) {
+                            for (let k in bars) {
+                                bars[k].remove();
+                                delete bars[k];
+                            }
+
+                            return ({ res: 'stop' });
+                        }
+
+                        const toDelete = [];
+                        for (let k in bars) {
+                            if (!json.individual[k]) {
+                                toDelete.push(k);
+                            }
+                        }
+                        toDelete.forEach(k => {
+                            bars[k].remove();
+                            delete bars[k];
+                        });
+
+                        for (let k in json.individual) {
+                            let bar = bars[k];
+                            if (!bar) {
+                                bar = createProgressBar();
+                                bars[k] = bar;
+                            }
+
+                            const p = json.individual[k];
+                            bar.setProgress(fileList[p.id].path, p.progress, p.speed);
+                        }
+
+                        return { res: 'more_progress' };
+                    }
+                },
+                async () => {
+                    await shutdownFileServer();
+                    unlockDir();
+                    unlockRunning();
+                    panel.tagged.bar_space.innerHTML = '';
+                    log('Server shut down!');
+
+                    panel.tagged.run_server.style.display = initialDisplay;
+                }
+            );
+            const bars = {};
             
             log('Server running!');
-
-            const { setHandler, send, setOnDisconnect } = await tcpServerProm;
-
-            setOnDisconnect(async () => {
-                await shutdownFileServer();
-                unlockDir();
-                unlockRunning();
-                panel.tagged.bar_space.innerHTML = '';
-                log('Server shut down!');
-
-                panel.tagged.run_server.style.display = initialDisplay;
-            });
-
-            setHandler('records', json => {
-                if (!json.slice) {
-                    send({ numFiles: hashed.length });
-                    return;
-                }
-
-                send(hashed.slice(json.slice[0], json.slice[1]));
-            });
-
-            setHandler('fileServer', json => {
-                send(fileServer);
-            });
-
-            setHandler('stop', async json => {
-                await stop(json.fileId);
-                send({ res: 'bucket_stopped'});
-            });
-
-            const bars = {};
-
-            setHandler('progress', async json => {
-                updateOveralProgress(json.overal);
-
-                if (json.overal[0] >= json.overal[1]) {
-                    send({ res: 'stop' });
-                    for (let k in bars) {
-                        bars[k].remove();
-                        delete bars[k];
-                    }
-                    return;
-                }
-
-                const toDelete = [];
-                for (let k in bars) {
-                    if (!json.individual[k]) {
-                        toDelete.push(k);
-                    }
-                }
-                toDelete.forEach(k => {
-                    bars[k].remove();
-                    delete bars[k];
-                });
-
-                for (let k in json.individual) {
-                    let bar = bars[k];
-                    if (!bar) {
-                        bar = createProgressBar();
-                        bars[k] = bar;
-                    }
-
-                    const p = json.individual[k];
-                    bar.setProgress(fileList[p.id].path, p.progress, p.speed);
-                }
-
-                send({ res: 'more_progress'});
-            });
         });
 
         panel.tagged.download_files.addEventListener('click', async () => {
@@ -218,7 +218,7 @@ function init() {
             const { initClient } = require('../tcpServer');
 
             let tcpConnectionActive = true;
-            const tcpClient = await initClient(peerAddr.ip, peerAddr.port, async () => {
+            const { send: tcpClient } = await initClient(peerAddr.ip, peerAddr.port, async () => {
                 const netModule = await app.modules.net;
                 netModule.interface.reset();
 

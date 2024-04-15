@@ -1,51 +1,9 @@
 const { initPeerServer, initPeerClient } = require('./udpServer');
 const { runUDPServer } = require('./backend')
 
-async function startPeerServer(getPCName) {
-    let tcpResolve;
-    let tcpProm = new Promise(resolve => {
-        tcpResolve = res => resolve(res);
-    });
-
+async function startPeerServer(getPCName, tcpServerHandler, onTCPServerEnd) {
     const { initServer } = require('./tcpServer');
-    const tcpServer = await initServer(socket => {
-
-        server.close();
-
-        const handlers = { };
-
-        let close;
-
-        tcpResolve({
-            send: data => {
-                socket.write(JSON.stringify(data));
-            },
-            setHandler: (req, handler) => {
-                handlers[req] = handler;
-            },
-            setOnDisconnect: handler => {
-                close = handler;
-            },
-        });
-
-        socket.on('data', data => {
-            const json = JSON.parse(data.toString());
-            const req = json.req;
-
-            const handler = handlers[req];
-            if (handler) {
-                handler(json);
-                return;
-            }
-
-            socket.write(JSON.stringify(json));
-        });
-
-        socket.on('close', () => {
-            tcpServer.close();
-            close();
-        });
-    });
+    const tcpServer = await initServer(tcpServerHandler, onTCPServerEnd);
 
     const fileServer = await runUDPServer();
 
@@ -54,7 +12,7 @@ async function startPeerServer(getPCName) {
 
         if (messageData.req === 'TCPPort?') {
             const res = JSON.stringify({
-                port: tcpServer.address().port,
+                port: tcpServer.port,
                 pcName: getPCName()
             });
             server.send(res, info.port, info.address, (err) => { });
@@ -65,7 +23,7 @@ async function startPeerServer(getPCName) {
 
     return {
         fileServer: fileServer,
-        tcpServerProm: tcpProm
+        tcpServer: tcpServer
     };
 }
 

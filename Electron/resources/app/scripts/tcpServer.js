@@ -1,67 +1,142 @@
 const net = require('net');
 
-async function initServer(onConnection) {
-	const res = await new Promise((resolve, reject) => {
-		const server = net.createServer(onConnection);
-		server.listen(0, () => {
-			resolve(server);
-		});
-	});
-	return res;
+async function initServer(handler, onEnd) {
+    let connection;
+
+    const server = net.createServer(socket => {
+        if (connection) {
+            setTimeout(() => {
+                socket.destroy();
+            }, 0);
+
+            return;
+        }
+        connection = socket;
+
+        let cnt = 0;
+        let buffer = ''
+
+        async function handle(message) {
+            const { id, data } = message;
+            const resp = await handler(data);
+            const tmp = {
+                id: id,
+                data: resp
+            };
+            socket.write(JSON.stringify(tmp));
+        }
+
+        socket.on('data', data => {
+            data = data.toString();
+            for (let i = 0; i < data.length; ++i) {
+                const cur = data[i];
+                buffer += cur;
+                if (cur === '{') {
+                    ++cnt;
+                }
+                if (cur === '}') {
+                    --cnt;
+                }
+
+                if (cnt === 0) {
+                    const message = JSON.parse(buffer);
+                    handle(message);
+                    buffer = '';
+                }
+            }
+        });
+
+        socket.on('end', () => {
+            onEnd();
+            server.close();
+        });
+    });
+
+    await new Promise(resolve => {
+        server.listen(0, '0.0.0.0', () => {
+            console.log(`listening on port ${server.address().port}`);
+            resolve();
+        });
+    });
+
+    return {
+        port: server.address().port,
+        close: () => {
+            if (connection) {
+                connection.destroy();
+            }
+            server.close();
+            onEnd();
+        }
+    }
 }
 
-async function initClient(address, port, onClose) {
-	const client = new net.Socket();
 
-	await new Promise((resolve, reject) => {
-		client.connect(port, address, () => {
-			resolve();
-		});
-	});
+async function initClient(address, port, onEnd) {
+    let socket = await new Promise(resolve => {
+        const s = net.createConnection(port, address, () => {
+            resolve(s);
+        });
+    });
 
-	const sendReqs = [];
+    let cnt = 0;
+    let buffer = ''
 
-	let handler;
-	client.on('data', function (data) {
-		handler(JSON.parse(data.toString()));
-		handler = undefined;
-	});
+    let handlers = {};
 
-	client.on('close', function () {
-		onClose();
-	});
+    socket.on('data', data => {
+        data = data.toString();
+        for (let i = 0; i < data.length; ++i) {
+            const cur = data[i];
+            buffer += cur;
+            if (cur === '{') {
+                ++cnt;
+            }
+            if (cur === '}') {
+                --cnt;
+            }
 
-	function _send(json) {
-		return new Promise((resolve, reject) => {
-			handler = message => {
-				resolve(message);
-			};
-			client.write(JSON.stringify(json));
-		});
-	}
+            if (cnt === 0) {
+                const message = JSON.parse(buffer);
+                const { id, data } = message;
 
-	function send(json) {
-		return new Promise(async (resolve, reject) => {
-			if (handler) {
-				sendReqs.push(async () => {
-					const res = await _send(json);
-					resolve(res);
-				});
+                const handler = handlers[id];
+                handler(data);
+                delete handlers[id];
 
-				return;
-			}
+                buffer = '';
+            }
+        }
+    });
 
-			const res = await _send(json);
-			resolve(res);
+    socket.on('end', () => {
+        onEnd();
+    });
 
-			if (sendReqs.length > 0) {
-				const req = sendReqs.shift();
-				req();
-			}
-		});
-	}
+    let id = 0;
+    return {
+        send: async obj => {
+            const req = {
+                id: id++,
+                data: obj
+            };
 
-	return send;
+            const res = await new Promise(resolve => {
+                handlers[req.id] = data => {
+                    resolve(data);
+                };
+
+                const message = JSON.stringify(req);
+                socket.write(message);
+            });
+
+            return res;
+        },
+        close: () => {
+            socket.destroy();
+            onEnd();
+        },
+    };
 }
 
 exports.initServer = initServer;
