@@ -10,7 +10,7 @@ async function initServer(onConnection) {
 	return res;
 }
 
-async function initClient(address, port) {
+async function initClient(address, port, onClose) {
 	const client = new net.Socket();
 
 	await new Promise((resolve, reject) => {
@@ -28,7 +28,7 @@ async function initClient(address, port) {
 	});
 
 	client.on('close', function () {
-		console.log('Connection closed');
+		onClose();
 	});
 
 	function _send(json) {

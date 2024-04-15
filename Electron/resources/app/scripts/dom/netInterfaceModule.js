@@ -251,6 +251,10 @@ function init() {
         changeMode: isServer => {
             panel.tagged.buttons.style.display = isServer ? 'none' : 'flex';
             panel.tagged.pc_name.style.display = isServer ? '' : 'none';
+        },
+        reset: () => {
+            peerChosen = undefined;
+            pairButton.tagged.name.innerHTML = 'Find Server';
         }
     };
 

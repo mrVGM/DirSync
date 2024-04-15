@@ -204,18 +204,45 @@ function init() {
                 return;
             }
 
+            let initialDisplay = panel.tagged.download_files.style.display;
             panel.tagged.download_files.style.display = 'none';
 
             const unlockDir = await app.locks.dir();
             const unlockRunning = await app.locks.running();
 
-            const { hashFiles, downloadFile, stop } = require('../backend');
+            const { hashFiles, downloadFile, shutdownDownloaders } = require('../backend');
 
             downloadFilesButtonActive = false;
 
             const peerAddr = peer.addr;
             const { initClient } = require('../tcpServer');
-            const tcpClient = await initClient(peerAddr.ip, peerAddr.port);
+
+            let tcpConnectionActive = true;
+            const tcpClient = await initClient(peerAddr.ip, peerAddr.port, async () => {
+                const netModule = await app.modules.net;
+                netModule.interface.reset();
+
+                tcpConnectionActive = false;
+
+                for (let id in slotRequests) {
+                    const cur = slotRequests[id];
+                    if (!cur) {
+                        continue;
+                    }
+
+                    cur();
+                }
+
+                await shutdownDownloaders();
+
+                log('Downloaders stopped!');
+
+                panel.tagged.bar_space.innerHTML = '';
+                unlockDir();
+                unlockRunning();
+
+                panel.tagged.download_files.style.display = initialDisplay;
+            });
 
             const fileServer = await tcpClient({ req: 'fileServer' });
 
@@ -284,6 +311,10 @@ function init() {
                 const pr = new Promise((resolve, reject) => {
                     const id = reqId++;
                     function tryTakeSlot() {
+                        if (!tcpConnectionActive) {
+                            reject();
+                        }
+
                         if (numSlots > 0) {
                             --numSlots;
                             slotRequests[id] = undefined;
@@ -328,7 +359,12 @@ function init() {
                     return;
                 }
 
-                await takeSlot();
+                try {
+                    await takeSlot();
+                }
+                catch {
+                    return;
+                }
 
                 log(`Starting to download ${f.path}`);
                 await new Promise((resolve, reject) => {

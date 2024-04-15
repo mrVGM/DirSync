@@ -643,11 +643,6 @@ udp::FileWriter::FileWriter(FileDownloaderObject& downloader) :
 
 udp::FileWriter::~FileWriter()
 {
-    if (m_running)
-    {
-        return;
-    }
-
     std::list<Chunk*>& chunks = GetReceived();
     for (auto it = chunks.begin(); it != chunks.end(); ++it)
     {
@@ -783,4 +778,9 @@ void udp::FileWriter::Start()
     }
 
     CloseHandle(f);
+
+    if (!m_running)
+    {
+        m_getChunksSemaphore.release();
+    }
 }
