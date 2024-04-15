@@ -270,6 +270,16 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 
 			container.GetAllObjectsOfClass(udp::FileDownloaderMeta::GetInstance(), downloaders);
 
+			if (downloaders.empty())
+			{
+				JSONValue res(ValueType::Object);
+				auto& resMap = res.GetAsObj();
+				resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
+				SendResponse(res);
+
+				return;
+			}
+
 			int* left = new int;
 			*left = downloaders.size();
 
