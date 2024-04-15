@@ -779,8 +779,5 @@ void udp::FileWriter::Start()
 
     CloseHandle(f);
 
-    if (!m_running)
-    {
-        m_getChunksSemaphore.release();
-    }
+    m_getChunksSemaphore.release();
 }
