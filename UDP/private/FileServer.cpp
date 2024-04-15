@@ -171,6 +171,15 @@ void udp::FileServerObject::Init()
                         continue;
                     }
 
+                    if (pkt.m_packetType.GetPacketType() == EPacketType::Test)
+                    {
+                        for (ull i = 0; i < pkt.m_offset; ++i)
+                        {
+                            sendto(m_socket, reinterpret_cast<const char*>(&pkt), sizeof(Packet), 0, reinterpret_cast<SOCKADDR*>(&SenderAddr), sizeof(sockaddr_in));
+                        }
+                        continue;
+                    }
+
                     ull bucketId = pkt.m_id;
                     bool justCreated;
                     Bucket* bucket = m_bucketManager.GetOrCreateBucket(bucketId, justCreated);

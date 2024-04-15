@@ -33,6 +33,41 @@
             console.log(res);
         }
 
+        let peer;
+        let fileServer;
+        async function testBandwidth(numPackets, delay) {
+            const netModule = await app.modules.net;
+
+            if (!peer)
+            {
+                peer = netModule.interface.getPeer();
+            }
+
+            if (!peer) {
+                alert('Find peer');
+                return;
+            }
+
+            const peerAddr = peer.addr;
+            if (!fileServer) {
+                const { initClient } = require('./scripts/tcpServer');
+
+                const { send } = await initClient(peerAddr.ip, peerAddr.port, async () => {
+                    alert('Lost connection to peer');
+                    netModule.interface.reset()
+                });
+                fileServer = await send({ req: 'fileServer' });
+            }
+
+            const { createBandwidthTester, testBandwidth } = require('./scripts/backend');
+
+            await createBandwidthTester(fileServer.port, peerAddr.ip);
+
+            const res = await testBandwidth(numPackets, delay);
+
+            console.log(res);
+        }
+
         async function test() {
             const { ipcRenderer } = require('electron');
             const argv = await new Promise((resolve, reject) => {

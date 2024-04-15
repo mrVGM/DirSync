@@ -19,6 +19,8 @@
 
 #include "Common.h"
 
+#include "BandwidthTester.h"
+
 #include <iostream>
 #include <string>
 #include <thread>
@@ -341,6 +343,52 @@ bool pipe_server::ServerObject::HandleReq(const json_parser::JSONValue& req)
 			);
 
 			downloader->Init();
+		}));
+
+		return true;
+	}
+
+	if (op == "create_bandwidth_tester")
+	{
+		std::string ipAddr = std::get<std::string>(map.find("ip_addr")->second.m_payload);
+		int port = std::get<json_parser::JSONNumber>(map.find("port")->second.m_payload).ToInt();
+
+		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+			BaseObject* obj = container.GetObjectOfClass(udp::BandWidthTesterMeta::GetInstance());
+
+			if (!obj)
+			{
+				new udp::BandWidthTesterObject(port, ipAddr);
+			}
+
+			JSONValue res(ValueType::Object);
+			auto& resMap = res.GetAsObj();
+			resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
+			SendResponse(res);
+		}));
+
+		return true;
+	}
+
+	if (op == "test_bandwidth")
+	{
+		int numPackets = std::get<json_parser::JSONNumber>(map.find("num_packets")->second.m_payload).ToInt();
+		int delay = std::get<json_parser::JSONNumber>(map.find("delay")->second.m_payload).ToInt();
+
+		jobs::RunSync(jobs::Job::CreateFromLambda([=]() {
+			BaseObjectContainer& container = BaseObjectContainer::GetInstance();
+			BaseObject* obj = container.GetObjectOfClass(udp::BandWidthTesterMeta::GetInstance());
+
+			udp::BandWidthTesterObject* tester = static_cast<udp::BandWidthTesterObject*>(obj);
+
+			tester->StartTest(numPackets, delay, jobs::Job::CreateFromLambda([=]() {
+				JSONValue res(ValueType::Object);
+				auto& resMap = res.GetAsObj();
+				resMap["id"] = JSONValue(json_parser::JSONNumber(reqId));
+				resMap["received"] = JSONValue(json_parser::JSONNumber(tester->m_received));
+				SendResponse(res);
+			}));
 		}));
 
 		return true;

@@ -161,6 +161,30 @@ async function shutdownDownloaders(fileId) {
     return res;
 }
 
+async function createBandwidthTester(port, ip) {
+    const send = await getSendFunc();
+
+    const res = await send({
+        op: 'create_bandwidth_tester',
+        ip_addr: ip,
+        port: port
+    });
+
+    return res;
+}
+
+async function testBandwidth(numPackets, delay) {
+    const send = await getSendFunc();
+
+    const res = await send({
+        op: 'test_bandwidth',
+        num_packets: numPackets,
+        delay: delay
+    });
+
+    return res;
+}
+
 exports.hashFiles = hashFiles;
 exports.registerFiles = registerFiles;
 exports.runUDPServer = runUDPServer;
@@ -168,3 +192,5 @@ exports.downloadFile = downloadFile;
 exports.stop = stop;
 exports.shutdownFileServer = shutdownFileServer;
 exports.shutdownDownloaders = shutdownDownloaders;
+exports.createBandwidthTester = createBandwidthTester;
+exports.testBandwidth = testBandwidth;

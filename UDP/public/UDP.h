@@ -27,7 +27,8 @@ namespace udp
 		Empty,
 		Full,
 		Blank,
-		Bitmask
+		Bitmask,
+		Test
 	};
 
 	struct PacketType
@@ -39,6 +40,7 @@ namespace udp
 		static PacketType m_full;
 		static PacketType m_blank;
 		static PacketType m_bitmask;
+		static PacketType m_test;
 
 		bool Equals(const PacketType& other) const;
 		EPacketType GetPacketType() const;

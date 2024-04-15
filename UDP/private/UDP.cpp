@@ -14,6 +14,7 @@ udp::PacketType udp::PacketType::m_empty { 'e' };
 udp::PacketType udp::PacketType::m_full { 'f' };
 udp::PacketType udp::PacketType::m_blank { 'b' };
 udp::PacketType udp::PacketType::m_bitmask { 'm' };
+udp::PacketType udp::PacketType::m_test { 't' };
 
 
 void udp::KB::UpBit(unsigned int bitNumber)
@@ -68,6 +69,11 @@ udp::EPacketType udp::PacketType::GetPacketType() const
 	if (Equals(m_bitmask))
 	{
 		return EPacketType::Bitmask;
+	}
+
+	if (Equals(m_test))
+	{
+		return EPacketType::Test;
 	}
 
 	return EPacketType::Error;
