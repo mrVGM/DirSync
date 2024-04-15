@@ -176,10 +176,21 @@ function init() {
                     log('Server shut down!');
 
                     panel.tagged.run_server.style.display = initialDisplay;
+                    panel.tagged.cancel.style.display = 'none';
                 }
             );
             const bars = {};
-            
+
+            const { close } = tcpServer;
+            panel.tagged.cancel.style.display = '';
+
+            function cancel() {
+                panel.tagged.cancel.removeEventListener('click', cancel);
+
+                close();
+            }
+            panel.tagged.cancel.addEventListener('click', cancel);
+
             log('Server running!');
         });
 
@@ -218,7 +229,7 @@ function init() {
             const { initClient } = require('../tcpServer');
 
             let tcpConnectionActive = true;
-            const { send: tcpClient } = await initClient(peerAddr.ip, peerAddr.port, async () => {
+            const { send: tcpClient, close } = await initClient(peerAddr.ip, peerAddr.port, async () => {
                 const netModule = await app.modules.net;
                 netModule.interface.reset();
 
@@ -242,7 +253,17 @@ function init() {
                 unlockRunning();
 
                 panel.tagged.download_files.style.display = initialDisplay;
+                panel.tagged.cancel.style.display = 'none';
             });
+
+            panel.tagged.cancel.style.display = '';
+
+            function cancel() {
+                panel.tagged.cancel.removeEventListener('click', cancel);
+
+                close();
+            }
+            panel.tagged.cancel.addEventListener('click', cancel);
 
             const fileServer = await tcpClient({ req: 'fileServer' });
 

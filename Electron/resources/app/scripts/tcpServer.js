@@ -1,6 +1,6 @@
 const net = require('net');
 
-async function initServer(handler, onEnd) {
+async function initServer(handler, onEnd, onConnection) {
     let connection;
 
     const server = net.createServer(socket => {
@@ -12,6 +12,9 @@ async function initServer(handler, onEnd) {
             return;
         }
         connection = socket;
+        if (onConnection) {
+            onConnection();
+        }
 
         let cnt = 0;
         let buffer = ''

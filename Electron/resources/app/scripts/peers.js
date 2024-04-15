@@ -3,7 +3,15 @@ const { runUDPServer } = require('./backend')
 
 async function startPeerServer(getPCName, tcpServerHandler, onTCPServerEnd) {
     const { initServer } = require('./tcpServer');
-    const tcpServer = await initServer(tcpServerHandler, onTCPServerEnd);
+    const tcpServer = await initServer(
+        tcpServerHandler,
+        () => {
+            onTCPServerEnd();
+            server.close();
+        },
+        () => {
+            server.close();
+        });
 
     const fileServer = await runUDPServer();
 
